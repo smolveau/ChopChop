@@ -1,0 +1,3 @@
+- cli crée et renvoie une struct remplie en fonction des paramètres (https://github.com/OJ/gobuster/blob/master/cli/cmd/root.go)
+- struct du yaml déclarée dans le "core"
+    importée dans cmd pour convertir le yaml fourni par lutilisateur en une struct remplie

@@ -33,16 +33,14 @@ func List(cmd *cobra.Command, args []string) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendHeader(table.Row{"URL", "Plugin Name", "Severity", "Description"})
-	for index, plugin := range y.Plugins {
-		_ = index
-		for index, check := range plugin.Checks {
-			_ = index
+	for _, plugin := range y.Plugins {
+		for _, check := range plugin.Checks {
 			// If the user wants a specific severity, collect only specified severity checks
 			if severity != "" {
 				if severity == string(*check.Severity) {
 					t.AppendRow([]interface{}{plugin.URI, check.PluginName, *check.Severity, *check.Description})
 					cpt++
-				}
+				} // FIXME code redondant , wut ?
 			} else {
 				t.AppendRow([]interface{}{plugin.URI, check.PluginName, *check.Severity, *check.Description})
 				cpt++

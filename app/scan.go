@@ -16,9 +16,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// SeverityType is basically an enum and values can be from Info, Low, Medium and High
-type SeverityType string
-
 const (
 	// Informational will be the default severityType
 	Informational SeverityType = "Informational"
@@ -29,29 +26,6 @@ const (
 	// High severity (highest rating)
 	High = "High"
 )
-
-// Config struct to load the configuration from the YAML file
-type Config struct {
-	Insecure bool     `yaml:"insecure"`
-	Plugins  []Plugin `yaml:"plugins"`
-}
-
-type Plugin struct {
-	URI    string  `yaml:"uri"`
-	Checks []Check `yaml:"checks"`
-}
-
-type Check struct {
-	Match       []*string     `yaml:"match"`
-	AllMatch    []*string     `yaml:"all_match"`
-	StatusCode  *int          `yaml:"status_code"`
-	PluginName  string        `yaml:"name"`
-	Remediation *string       `yaml:"remediation"`
-	Severity    *SeverityType `yaml:"severity"`
-	Description *string       `yaml:"description"`
-	NoMatch     []*string     `yaml:"no_match"`
-	Headers     []*string     `yaml:"headers"`
-}
 
 // Scan of domain via url
 func Scan(cmd *cobra.Command, args []string) {
@@ -109,15 +83,14 @@ func Scan(cmd *cobra.Command, args []string) {
 
 	CheckStructFields(y)
 	wg := new(sync.WaitGroup)
-	safeData := SafeData{}
-
+	safeData := new(SafeData)
 	for _, domain := range urlList {
-		url := prefix+domain+suffix
+		url := prefix + domain + suffix
 		fmt.Println("Testing domain : ", url)
 		for _, plugin := range y.Plugins {
 			fullURL := url + fmt.Sprint(plugin.URI)
 			wg.Add(1)
-			go scanUrl(blockedFlag, insecure, domain, fullURL, plugin, &safeData, wg)
+			go scanUrl(domain, fullURL, plugin, safeData, wg)
 		}
 	}
 	wg.Wait() // blocking operation
@@ -138,36 +111,38 @@ func Scan(cmd *cobra.Command, args []string) {
 			fmt.Println("No critical vulnerabilities found...")
 			os.Exit(0)
 		}
-		os.Exit(1) // TODO pas d'exit danscette fonction, faire remonter au cli
+		os.Exit(1) // TODO pas d'exit dans cette fonction, faire remonter au cli
 	} else {
 		fmt.Println("No vulnerabilities found. Exiting...")
 		os.Exit(0)
 	}
 }
 
-func scanUrl(blockedFlag string, insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup){
+func scanURL(url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
 
-		defer wg.Done()
-		httpResponse, err := pkg.HTTPGet(insecure, url)
-		if err != nil {
-			return
-		}
-		if httpResponse == nil {
-			fmt.Println("Server refused the connection for URL : " + url)
-			return
-		}
-		swg := new(sync.WaitGroup)
-		for _, check := range plugin.Checks {
-			swg.Add(1)
-			go scanHTTPResponse(httpResponse, domain, blockedFlag, check, safeData, wg)
-		}
-		swg.Wait()
 }
 
-
-func scanHTTPResponse(httpResponse *pkg.HTTPResponse, domain string, blockedFlag string, check Check, safeData *SafeData, wg *sync.WaitGroup) {
-	block := false
+// Blocked Flag + insecure refactor
+func scanUrl(domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
 	defer wg.Done()
+	httpResponse, err := pkg.HTTPGet(insecure, url)
+	if err != nil {
+		return
+	}
+	if httpResponse == nil {
+		fmt.Println("Server refused the connection for URL : " + url)
+		return
+	}
+	swg := new(sync.WaitGroup)
+	for _, check := range plugin.Checks {
+		swg.Add(1)
+		go scanHTTPResponse(httpResponse, url, domain, blockedFlag, check, safeData, swg)
+	}
+	swg.Wait()
+}
+
+func scanHTTPResponse(httpResponse *pkg.HTTPResponse, url string, domain string, blockedFlag string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
+	defer swg.Done()
 	match := pkg.ResponseAnalysis(httpResponse, check.StatusCode, check.Match, check.AllMatch, check.NoMatch, check.Headers)
 	if match {
 		if BlockCI(blockedFlag, *check.Severity) {

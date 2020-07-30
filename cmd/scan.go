@@ -3,36 +3,43 @@ package cmd
 import (
 	"fmt"
 	"gochopchop/app"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
 func init() {
 	rootCmd.AddCommand(scanCmd)
-	scanCmd.Flags().StringP("url", "u", "", "url to scan")                                                  // --url OU -u
-	scanCmd.Flags().StringP("config-file", "c", "chopchop.yml", "path to config/data file")                 // --config-file ou -c
-	scanCmd.Flags().BoolP("insecure", "i", false, "Check SSL certificate")                                  // --insecure ou -n
-	scanCmd.Flags().StringP("url-file", "f", "", "path to a specified file containing urls to test")        // --uri-file ou -f
-	scanCmd.Flags().StringP("suffix", "s", "", "Add suffix to urls when flag url-file is specified")        // --suffix ou -s
-	scanCmd.Flags().StringP("prefix", "p", "", "Add prefix to urls when flag url-file is specified")        // --prefix ou -p
+	scanCmd.Flags().StringP("url", "u", "", "url to scan")                                           // --url OU -u
+	scanCmd.Flags().StringP("config-file", "c", "chopchop.yml", "path to config/data file")          // --config-file ou -c
+	scanCmd.Flags().BoolP("insecure", "i", false, "Check SSL certificate")                           // --insecure ou -n
+	scanCmd.Flags().StringP("url-file", "f", "", "path to a specified file containing urls to test") // --uri-file ou -f
+	// utilisé ?
+	scanCmd.Flags().StringP("suffix", "s", "", "Add suffix to urls when flag url-file is specified") // --suffix ou -s
+	// utilisé ?
+	scanCmd.Flags().StringP("prefix", "p", "", "Add prefix to urls when flag url-file is specified") // --prefix ou -p
+	// max severity - peut etre a deplacer dans la config du tool
 	scanCmd.Flags().StringP("block", "b", "", "Block pipeline if severity is over or equal specified flag") // --block ou -b
-	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file")                                         //--csv
-	scanCmd.Flags().BoolP("json", "", false, "output as a json file")                                       //--json
+	// TODO option output multi-choix
+	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file")   //--csv
+	scanCmd.Flags().BoolP("json", "", false, "output as a json file") //--json
+	// TODO ADD TIMER AND THREADS NUMBER FLAG
 }
 
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "scan URL endpoints to check if services/files/folders are exposed to the Internet",
-	Args:  scanCheckArgsAndFlags,
+	Args:  checkArgsAndFlags,
 	Run:   app.Scan,
+	// check args puis passer une struct au Run
 }
 
-func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
-	// validate url
+func checkArgsAndFlags(cmd *cobra.Command, args []string) error {
+	// TODO validate url
 	// TODO : Add CheckStructFields scan.go in it
 
 	url, err := cmd.Flags().GetString("url")
