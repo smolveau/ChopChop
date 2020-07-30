@@ -1,31 +1,21 @@
 package pkg
 
 import (
-	"io/ioutil"
-	"log"
-	"net/http"
 	"strings"
 )
 
 //ResponseAnalysis of HTTP Request with checks
-func ResponseAnalysis(resp *http.Response, statusCode *int32, match []*string, allMatch []*string, noMatch []*string, headers []*string) bool {
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	bodyString := string(bodyBytes)
-
+func ResponseAnalysis(resp *HTTPResponse, statusCode *int, match []*string, allMatch []*string, noMatch []*string, headers []*string) bool {
+	// TODO a refactor
 	if statusCode != nil {
-		tmpCode := *statusCode
-		if int32(resp.StatusCode) != tmpCode {
+		if resp.StatusCode != *statusCode {
 			return false
 		}
 	}
 	// all element needs to be found
 	if allMatch != nil {
 		for i := 0; i < len(allMatch); i++ {
-			if !strings.Contains(bodyString, *allMatch[i]) {
+			if !strings.Contains(resp.Body, *allMatch[i]) {
 				return false
 			}
 		}
@@ -35,7 +25,7 @@ func ResponseAnalysis(resp *http.Response, statusCode *int32, match []*string, a
 	if match != nil {
 		found := false
 		for i := 0; i < len(match); i++ {
-			if strings.Contains(bodyString, *match[i]) {
+			if strings.Contains(resp.Body, *match[i]) {
 				found = true
 			}
 		}
@@ -47,7 +37,7 @@ func ResponseAnalysis(resp *http.Response, statusCode *int32, match []*string, a
 	// if 1 element of list is not found
 	if noMatch != nil {
 		for i := 0; i < len(noMatch); i++ {
-			if strings.Contains(bodyString, *noMatch[i]) {
+			if strings.Contains(resp.Body, *noMatch[i]) {
 				return false
 			}
 		}

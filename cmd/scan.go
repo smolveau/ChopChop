@@ -3,10 +3,11 @@ package cmd
 import (
 	"fmt"
 	"gochopchop/app"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-
 	"github.com/spf13/cobra"
 )
 
@@ -32,6 +33,8 @@ var scanCmd = &cobra.Command{
 
 func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
 	// validate url
+	// TODO : Add CheckStructFields scan.go in it
+
 	url, err := cmd.Flags().GetString("url")
 	if err != nil {
 		return fmt.Errorf("invalid value for url: %v", err)
@@ -87,6 +90,18 @@ func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
 	}
 	if err := cmd.Flags().Set("config-file", configFile); err != nil {
 		return fmt.Errorf("error while setting filepath of config file")
+	}
+	cfg, err := os.Open(configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer cfg.Close()
+	dataCfg, err := ioutil.ReadAll(cfg)
+
+	y := app.Config{}
+	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
+		log.Fatal(err)
 	}
 	if err := cmd.Flags().Set("url-file", urlFile); err != nil {
 		return fmt.Errorf("error while setting filepath of url file")

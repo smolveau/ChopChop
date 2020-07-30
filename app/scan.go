@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,21 +32,25 @@ const (
 
 // Config struct to load the configuration from the YAML file
 type Config struct {
-	Insecure bool `yaml:"insecure"`
-	Plugins  []struct {
-		URI    string `yaml:"uri"`
-		Checks []struct {
-			Match       []*string     `yaml:"match"`
-			AllMatch    []*string     `yaml:"all_match"`
-			StatusCode  *int32        `yaml:"status_code"`
-			PluginName  string        `yaml:"name"`
-			Remediation *string       `yaml:"remediation"`
-			Severity    *SeverityType `yaml:"severity"`
-			Description *string       `yaml:"description"`
-			NoMatch     []*string     `yaml:"no_match"`
-			Headers     []*string     `yaml:"headers"`
-		} `yaml:"checks"`
-	} `yaml:"plugins"`
+	Insecure bool     `yaml:"insecure"`
+	Plugins  []Plugin `yaml:"plugins"`
+}
+
+type Plugin struct {
+	URI    string  `yaml:"uri"`
+	Checks []Check `yaml:"checks"`
+}
+
+type Check struct {
+	Match       []*string     `yaml:"match"`
+	AllMatch    []*string     `yaml:"all_match"`
+	StatusCode  *int          `yaml:"status_code"`
+	PluginName  string        `yaml:"name"`
+	Remediation *string       `yaml:"remediation"`
+	Severity    *SeverityType `yaml:"severity"`
+	Description *string       `yaml:"description"`
+	NoMatch     []*string     `yaml:"no_match"`
+	Headers     []*string     `yaml:"headers"`
 }
 
 // Scan of domain via url
@@ -60,9 +65,6 @@ func Scan(cmd *cobra.Command, args []string) {
 	prefix, _ := cmd.Flags().GetString("prefix")
 	blockedFlag, _ := cmd.Flags().GetString("block")
 
-	var tmpURL string
-	var urlList []string
-
 	cfg, err := os.Open(configFile)
 	if err != nil {
 		log.Fatal(err)
@@ -71,6 +73,12 @@ func Scan(cmd *cobra.Command, args []string) {
 	defer cfg.Close()
 	dataCfg, err := ioutil.ReadAll(cfg)
 
+	y := Config{}
+	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
+		log.Fatal(err)
+	}
+
+	var urlList []string
 	if url != "" {
 		urlList = append(urlList, url)
 	}
@@ -83,6 +91,7 @@ func Scan(cmd *cobra.Command, args []string) {
 		defer urlFileContent.Close()
 
 		scanner := bufio.NewScanner(urlFileContent)
+		// TODO : why use bufio ?
 		for scanner.Scan() {
 			urlList = append(urlList, scanner.Text())
 		}
@@ -91,10 +100,6 @@ func Scan(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	y := Config{}
-	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
-		log.Fatal(err)
-	}
 	// If flag insecure isn't specified, check yaml file if it's specified in it
 	if insecure {
 		fmt.Println("Launching scan without validating the SSL certificate")
@@ -103,74 +108,98 @@ func Scan(cmd *cobra.Command, args []string) {
 	}
 
 	CheckStructFields(y)
-	hit := false
-	block := false
-	currentTime := time.Now()
-	date := currentTime.Format("2006-01-02_15-04-05")
-	out := []data.Output{}
+	wg := new(sync.WaitGroup)
+	safeData := SafeData{}
 
-	for i := 0; i < len(urlList); i++ {
-		fmt.Print("Testing domain : ")
-		fmt.Println(prefix + urlList[i] + suffix)
-		for index, plugin := range y.Plugins {
-			_ = index
-			tmpURL = prefix + urlList[i] + suffix + fmt.Sprint(plugin.URI)
-			httpResponse, err := pkg.HTTPGet(insecure, tmpURL)
-			if err != nil {
-				_ = errors.Wrap(err, "Timeout of HTTP Request")
-			}
-
-			if httpResponse != nil {
-				for index, check := range plugin.Checks {
-					_ = index
-					answer := pkg.ResponseAnalysis(httpResponse, check.StatusCode, check.Match, check.AllMatch, check.NoMatch, check.Headers)
-					if answer {
-						hit = true
-						if BlockCI(blockedFlag, *check.Severity) {
-							block = true
-						}
-						out = append(out, data.Output{
-							Domain:      urlList[i],
-							PluginName:  check.PluginName,
-							TestedURL:   plugin.URI,
-							Severity:    string(*check.Severity),
-							Remediation: *check.Remediation,
-						})
-					}
-				}
-			} else {
-				fmt.Println("Server refused the connection for URL : " + tmpURL)
-				continue
-			}
-			_ = httpResponse.Body.Close()
+	for _, domain := range urlList {
+		url := prefix+domain+suffix
+		fmt.Println("Testing domain : ", url)
+		for _, plugin := range y.Plugins {
+			fullURL := url + fmt.Sprint(plugin.URI)
+			wg.Add(1)
+			go scanUrl(blockedFlag, insecure, domain, fullURL, plugin, &safeData, wg)
 		}
 	}
-	if hit {
-		pkg.FormatOutputTable(out)
+	wg.Wait() // blocking operation
+	if len(safeData.out) > 0 {
+		dateNow := time.Now().Format("2006-01-02_15-04-05")
+		pkg.FormatOutputTable(safeData.out)
 		if json {
-			outputJSON := pkg.AddVulnToOutputJSON(out)
-			pkg.CreateFileJSON(date, outputJSON)
+			outputJSON := pkg.AddVulnToOutputJSON(safeData.out) // TODO refactor
+			pkg.CreateFileJSON(dateNow, outputJSON)
 		}
 		if csv {
-			pkg.FormatOutputCSV(date, out)
+			pkg.FormatOutputCSV(dateNow, safeData.out)
 		}
 		if blockedFlag != "" {
 			if block {
 				os.Exit(1)
-			} else {
-				fmt.Println("No critical vulnerabilities found...")
-				os.Exit(0)
 			}
+			fmt.Println("No critical vulnerabilities found...")
+			os.Exit(0)
 		}
-		os.Exit(1)
+		os.Exit(1) // TODO pas d'exit danscette fonction, faire remonter au cli
 	} else {
 		fmt.Println("No vulnerabilities found. Exiting...")
 		os.Exit(0)
 	}
 }
 
+func scanUrl(blockedFlag string, insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup){
+
+		defer wg.Done()
+		httpResponse, err := pkg.HTTPGet(insecure, url)
+		if err != nil {
+			return
+		}
+		if httpResponse == nil {
+			fmt.Println("Server refused the connection for URL : " + url)
+			return
+		}
+		swg := new(sync.WaitGroup)
+		for _, check := range plugin.Checks {
+			swg.Add(1)
+			go scanHTTPResponse(httpResponse, domain, blockedFlag, check, safeData, wg)
+		}
+		swg.Wait()
+}
+
+
+func scanHTTPResponse(httpResponse *pkg.HTTPResponse, domain string, blockedFlag string, check Check, safeData *SafeData, wg *sync.WaitGroup) {
+	block := false
+	defer wg.Done()
+	match := pkg.ResponseAnalysis(httpResponse, check.StatusCode, check.Match, check.AllMatch, check.NoMatch, check.Headers)
+	if match {
+		if BlockCI(blockedFlag, *check.Severity) {
+			block = true
+		}
+		//TODO refactor rename out variable
+		o := data.Output{
+			Domain:      domain,
+			PluginName:  check.PluginName,
+			TestedURL:   url,
+			Severity:    string(*check.Severity),
+			Remediation: *check.Remediation,
+		} // WARNING attention à la taille du tableau final, bcp de recopie d'infos
+		safeData.Add(o)
+	}
+}
+
+type SafeData struct {
+	mux sync.Mutex
+	out []data.Output
+}
+
+func (s *SafeData) Add(d data.Output) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	s.out = append(s.out, d)
+}
+
 // BlockCI function will allow the user to return a different status code depending on the highest severity that has triggered
+// FIXME fausse explication
 func BlockCI(severity string, severityType SeverityType) bool {
+	// TODO rename function, dont export it
 	switch severity {
 	case "High":
 		if severityType == High {
@@ -192,13 +221,12 @@ func BlockCI(severity string, severityType SeverityType) bool {
 	return false
 }
 
-// CheckStructFields will parse the YAML configuration file
+// CheckStructFields will check the fields of YAML configuration file
 func CheckStructFields(conf Config) {
-	for index, plugin := range conf.Plugins {
-		_ = index
-		for index, check := range plugin.Checks {
-			_ = index
+	for _, plugin := range conf.Plugins {
+		for _, check := range plugin.Checks {
 			if check.Description == nil {
+				// TODO remonter l'erreur plutot que fatal
 				log.Fatal("Missing description field in " + check.PluginName + " plugin checks. Stopping execution.")
 			}
 			if check.Remediation == nil {
@@ -206,10 +234,10 @@ func CheckStructFields(conf Config) {
 			}
 			if check.Severity == nil {
 				log.Fatal("Missing severity field in " + check.PluginName + " plugin checks. Stopping execution.")
-			} else {
-				if err := SeverityType.IsValid(*check.Severity); err != nil {
-					log.Fatal(" ------ Unknown severity type : " + string(*check.Severity) + " . Only Informational / Low / Medium / High are valid severity types.")
-				}
+			}
+			if err := SeverityType.IsValid(*check.Severity); err != nil {
+				// TODO error not used
+				log.Fatal(" ------ Unknown severity type : " + string(*check.Severity) + " . Only Informational / Low / Medium / High are valid severity types.")
 			}
 		}
 	}
