@@ -1,3 +1,26 @@
+- Separer la config des plugins
+
 - cli crée et renvoie une struct remplie en fonction des paramètres (https://github.com/OJ/gobuster/blob/master/cli/cmd/root.go)
 - struct du yaml déclarée dans le "core"
     importée dans cmd pour convertir le yaml fourni par lutilisateur en une struct remplie
+
+- sémantique changer les noms de variables etc pour etre plus logique
+
+- remove bufio ?
+
+- load config :
+    - user specified path
+    - XDG_DATA_HOME
+    - user HOME
+    - current working directory
+
+- utiliser un logger (json, timestamp, differents niveaux etc)
+
+- commande scan
+    - utiliser parseConfig
+    - passer la config à la fonction de run
+    - lors du run, parser les flags, les valider, populer une struct et passer cette struct à la fonction finale de scan
+
+- ecrire tests unitaires
+
+- ecrire tests fonctionnels (e2e)

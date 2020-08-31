@@ -43,8 +43,8 @@ func Scan(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer cfg.Close()
+
 	dataCfg, err := ioutil.ReadAll(cfg)
 
 	y := Config{}
@@ -74,6 +74,7 @@ func Scan(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// TODO Must be added to config before launching scan function
 	// If flag insecure isn't specified, check yaml file if it's specified in it
 	if insecure {
 		fmt.Println("Launching scan without validating the SSL certificate")
@@ -105,9 +106,7 @@ func Scan(cmd *cobra.Command, args []string) {
 			pkg.FormatOutputCSV(dateNow, safeData.out)
 		}
 		if blockedFlag != "" {
-			if block {
-				os.Exit(1)
-			}
+			// TODO os exit + block flag ?
 			fmt.Println("No critical vulnerabilities found...")
 			os.Exit(0)
 		}
@@ -118,6 +117,7 @@ func Scan(cmd *cobra.Command, args []string) {
 	}
 }
 
+//TODO Refactor Scan URL
 func scanURL(url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
 
 }
@@ -125,7 +125,8 @@ func scanURL(url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) 
 // Blocked Flag + insecure refactor
 func scanUrl(domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
 	defer wg.Done()
-	httpResponse, err := pkg.HTTPGet(insecure, url)
+	// TODO pass config, ptete la faire accessible au package idk
+	httpResponse, err := pkg.HTTPGet(true, url)
 	if err != nil {
 		return
 	}
@@ -143,6 +144,7 @@ func scanUrl(domain string, url string, plugin Plugin, safeData *SafeData, wg *s
 
 func scanHTTPResponse(httpResponse *pkg.HTTPResponse, url string, domain string, blockedFlag string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
 	defer swg.Done()
+	// TODO Too much variables for methode ReponseAnalysis, just give it the struct
 	match := pkg.ResponseAnalysis(httpResponse, check.StatusCode, check.Match, check.AllMatch, check.NoMatch, check.Headers)
 	if match {
 		if BlockCI(blockedFlag, *check.Severity) {

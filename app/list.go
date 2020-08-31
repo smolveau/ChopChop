@@ -1,47 +1,24 @@
 package app
 
 import (
-	"io/ioutil"
-	"log"
 	"os"
 
 	"github.com/jedib0t/go-pretty/table"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
+type ListOptions struct {
+	Severity string
+}
+
 // List checks of config file
-func List(cmd *cobra.Command, args []string) {
-
-	configFile, _ := cmd.Flags().GetString("config-file")
-	severity, _ := cmd.Flags().GetString("severity")
-
-	file, err := os.Open(configFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer file.Close()
-	data, err := ioutil.ReadAll(file)
-	y := Config{}
-
-	err = yaml.Unmarshal([]byte(data), &y)
-	if err != nil {
-		log.Fatalf("error: %v", err)
-	}
+func List(config *Config, options *ListOptions) {
 	cpt := 0
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.AppendHeader(table.Row{"URL", "Plugin Name", "Severity", "Description"})
-	for _, plugin := range y.Plugins {
+	for _, plugin := range config.Plugins {
 		for _, check := range plugin.Checks {
-			// If the user wants a specific severity, collect only specified severity checks
-			if severity != "" {
-				if severity == string(*check.Severity) {
-					t.AppendRow([]interface{}{plugin.URI, check.PluginName, *check.Severity, *check.Description})
-					cpt++
-				} // FIXME code redondant , wut ?
-			} else {
+			if options.Severity == "" || options.Severity == string(*check.Severity) {
 				t.AppendRow([]interface{}{plugin.URI, check.PluginName, *check.Severity, *check.Description})
 				cpt++
 			}

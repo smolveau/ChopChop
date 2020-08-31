@@ -20,19 +20,11 @@ func parseConfig(cmd *cobra.Command) (config *app.Config, error) {
 		return nil, fmt.Errorf("invalid value for configFile: %v", err)
 	}
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		log.Println("Filepath of config file is not valid") // pas de fatal
-		return nil, err
-	}
-	if !strings.HasSuffix(configFile, ".yml") {
-		log.Println("Config file needs to be a yaml file") // pas de fatal
+		log.Println("Filepath of config file is not valid")
 		return nil, err
 	}
 
-	// 2. si env XDG_DATA_HOME existe, verifier $XDG_DATA_HOME/chopchop/chopchop.yml
-	// 3. $HOME/chopchop.yml
 	// 4. next to binary
-
-	// et qui va la parse dans une struct (importée du core) pour renvoyer une struct populée (ou une erreur)
 	
 	file, err := os.Open(configFile)
 	if err != nil {
@@ -42,7 +34,7 @@ func parseConfig(cmd *cobra.Command) (config *app.Config, error) {
 
 	configData, err := ioutil.ReadAll(file)
 	if err != nil {
-		log.Println("error: %v", err) // pas de fatal
+		log.Println("error: %v", err)
 		return nil, err
 	}
 	
@@ -50,7 +42,7 @@ func parseConfig(cmd *cobra.Command) (config *app.Config, error) {
 
 	err = yaml.Unmarshal([]byte(configData), config)
 	if err != nil {
-		log.Println("error: %v", err) // pas de fatal
+		log.Println("error: %v", err)
 		return nil, err
 	}
 

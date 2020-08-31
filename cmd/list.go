@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"gochopchop/app"
-	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -14,45 +13,40 @@ func init() {
 		Short: "list checks of configuration file",
 		RunE:  run,
 	}
-
-	// TODO fonction qui recupere la config + la parse
 	addConfigFlag(pluginCmd)
 	pluginCmd.Flags().StringP("severity", "s", "", "severity option for list tag") // --severity ou -s
-
 	// prerun needed ?
 	// pluginCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 	//     configureGlobalOptions()
 	// }
-
 	rootCmd.AddCommand(pluginCmd)
 }
 
 func run(cmd *cobra.Command, args []string) error {
 	config, err := parseConfig(cmd)
 	if err != nil {
-		// no config found donc return err
+		return err
 	}
-	// parse flags
+	options, err := parseOptions(cmd)
+	if err != nil {
+		return err
+	}
 	// call core with struct
-	app.List()
+	app.List(config, options)
 	return nil
 }
 
-func pluginCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
+func parseOptions(cmd *cobra.Command) (*app.ListOptions, error) {
 	//Validate severity input
+	options := new(app.ListOptions)
 	severity, err := cmd.Flags().GetString("severity")
 	if err != nil {
-		return fmt.Errorf("invalid value for severity: %v", err)
+		return nil, fmt.Errorf("invalid value for severity: %v", err)
 	}
-	if severity != "" {
-		if severity == "High" || severity == "Medium" || severity == "Low" || severity == "Informational" {
-			fmt.Println("Display only check of severity : " + severity)
-		} else {
-			log.Fatal(" ------ Unknown severity type : " + severity + " . Only Informational / Low / Medium / High are valid severity types.")
-		}
+	if severity == "High" || severity == "Medium" || severity == "Low" || severity == "Informational" {
+		options.Severity = severity
+	} else {
+		return nil, fmt.Errorf(" ------ Unknown severity type : %s . Only Informational / Low / Medium / High are valid severity types.", severity)
 	}
-	if err := cmd.Flags().Set("config-file", configFile); err != nil {
-		return fmt.Errorf("error while setting filepath of config file")
-	}
-	return nil
+	return options, nil
 }
