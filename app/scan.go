@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,9 +16,21 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type SafeData struct {
+	mux   sync.Mutex
+	out   []data.Output
+	block bool
+}
+
+func (s *SafeData) Add(d data.Output) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	s.out = append(s.out, d)
+}
+
 // Scan of domain via url
 func Scan(cmd *cobra.Command, args []string) {
-	start := time.Now()
+	timer := time.Now()
 
 	url, _ := cmd.Flags().GetString("url")
 	insecure, _ := cmd.Flags().GetBool("insecure")
@@ -29,17 +42,19 @@ func Scan(cmd *cobra.Command, args []string) {
 	prefix, _ := cmd.Flags().GetString("prefix")
 	blockedFlag, _ := cmd.Flags().GetString("block")
 
-	var tmpURL string
-	var urlList []string
-
 	cfg, err := os.Open(configFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer cfg.Close()
-	dataCfg, err := ioutil.ReadAll(cfg)
 
+	dataCfg, err := ioutil.ReadAll(cfg)
+	y := data.Config{}
+	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
+		log.Fatal(err)
+	}
+
+	var urlList []string
 	if url != "" {
 		urlList = append(urlList, url)
 	}
@@ -60,11 +75,6 @@ func Scan(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	y := data.Config{}
-	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
-		log.Fatal(err)
-	}
-	// If flag insecure isn't specified, check yaml file if it's specified in it
 	if insecure {
 		fmt.Println("Launching scan without validating the SSL certificate")
 	} else {
@@ -72,83 +82,88 @@ func Scan(cmd *cobra.Command, args []string) {
 	}
 
 	CheckStructFields(y)
-	hit := false
-	block := false
-	currentTime := time.Now()
-	date := currentTime.Format("2006-01-02_15-04-05")
-	out := []data.Output{}
+	wg := new(sync.WaitGroup)
+	safeData := new(SafeData)
 
-	for i := 0; i < len(urlList); i++ {
-		fmt.Print("Testing domain : ")
-		fmt.Println(prefix + urlList[i] + suffix)
-		for index, plugin := range y.Plugins {
-			_ = index
-			tmpURL = prefix + urlList[i] + suffix + fmt.Sprint(plugin.URI)
+	for _, domain := range urlList {
+		url := prefix + domain + suffix
+		fmt.Println("Testing domain : ", url)
+		for _, plugin := range y.Plugins {
+			fullURL := url + fmt.Sprint(plugin.URI)
 			if plugin.QueryString != "" {
-				tmpURL += "?" + plugin.QueryString
+				fullURL += "?" + plugin.QueryString
 			}
-
-			// By default we follow HTTP redirects
-			followRedirects := true
-			// But for each plugin we can override and don't follow HTTP redirects
-			if plugin.FollowRedirects != nil && *plugin.FollowRedirects == false {
-				followRedirects = false
-			}
-
-			httpResponse, err := pkg.HTTPGet(insecure, tmpURL, followRedirects)
-			if err != nil {
-				_ = errors.Wrap(err, "Timeout of HTTP Request")
-			}
-
-			if httpResponse != nil {
-				for index, check := range plugin.Checks {
-					_ = index
-					answer := pkg.ResponseAnalysis(httpResponse, check)
-					if answer {
-						hit = true
-						if BlockCI(blockedFlag, *check.Severity) {
-							block = true
-						}
-						out = append(out, data.Output{
-							Domain:      urlList[i],
-							PluginName:  check.PluginName,
-							TestedURL:   plugin.URI,
-							Severity:    string(*check.Severity),
-							Remediation: *check.Remediation,
-						})
-					}
-				}
-			} else {
-				fmt.Println("Server refused the connection for URL : " + tmpURL)
-				continue
-			}
-			_ = httpResponse.Body.Close()
+			wg.Add(1)
+			go scanURL(blockedFlag, insecure, domain, fullURL, plugin, safeData, wg)
 		}
 	}
+	wg.Wait() // blocking operation
 
-	if hit {
-		pkg.FormatOutputTable(out)
+	elapsed := time.Since(timer)
+	log.Printf("Scan execution time: %s", elapsed)
+	if len(safeData.out) > 0 {
+		dateNow := time.Now().Format("2006-01-02_15-04-05")
+		pkg.FormatOutputTable(safeData.out)
 		if json {
-			outputJSON := pkg.AddVulnToOutputJSON(out)
-			pkg.CreateFileJSON(date, outputJSON)
+			outputJSON := pkg.AddVulnToOutputJSON(safeData.out)
+			pkg.CreateFileJSON(dateNow, outputJSON)
 		}
 		if csv {
-			pkg.FormatOutputCSV(date, out)
+			pkg.FormatOutputCSV(dateNow, safeData.out)
 		}
+		if blockedFlag != "" {
+			fmt.Println("No critical vulnerabilities found...")
+			os.Exit(0)
+		}
+		os.Exit(1)
+	} else {
+		fmt.Println("No vulnerabilities found. Exiting...")
+		os.Exit(0)
+	}
+}
+
+func scanURL(blockedFlag string, insecure bool, domain string, url string, plugin data.Plugin, safeData *SafeData, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	// By default we follow HTTP redirects
+	followRedirects := true
+	// But for each plugin we can override and don't follow HTTP redirects
+	if plugin.FollowRedirects != nil && *plugin.FollowRedirects == false {
+		followRedirects = false
 	}
 
-	elapsed := time.Since(start)
-	log.Printf("Scan execution time: %s", elapsed)
+	httpResponse, err := pkg.HTTPGet(insecure, url, followRedirects)
+	if err != nil {
+		_ = errors.Wrap(err, "Timeout of HTTP Request")
+	}
+	if httpResponse == nil {
+		fmt.Println("Server refused the connection for URL : " + url)
+		return
+	}
 
-	// return EXIT_SUCCESS if
-	// 1. no hit
-	// 2. no vulns >= the cricity we're looking for
-	if hit {
-		if blockedFlag != "" && !block {
-			os.Exit(0)
-		} else {
-			os.Exit(1)
+	swg := new(sync.WaitGroup)
+	for _, check := range plugin.Checks {
+		swg.Add(1)
+		go scanHTTPResponse(httpResponse, url, domain, blockedFlag, check, safeData, swg)
+	}
+	swg.Wait()
+}
+
+func scanHTTPResponse(httpResponse *pkg.HTTPResponse, url string, domain string, blockedFlag string, check data.Check, safeData *SafeData, swg *sync.WaitGroup) {
+	defer swg.Done()
+	match := pkg.ResponseAnalysis(httpResponse, check)
+	if match {
+		if BlockCI(blockedFlag, *check.Severity) {
+			safeData.block = true
 		}
+		o := data.Output{
+			Domain:      domain,
+			PluginName:  check.PluginName,
+			TestedURL:   url,
+			Severity:    string(*check.Severity),
+			Remediation: *check.Remediation,
+		} // WARNING attention à la taille du tableau final, bcp de recopie d'infos
+		safeData.Add(o)
 	}
 }
 

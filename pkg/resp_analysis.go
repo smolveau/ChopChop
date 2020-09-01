@@ -2,21 +2,12 @@ package pkg
 
 import (
 	"gochopchop/data"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"strings"
 )
 
 //ResponseAnalysis of HTTP Request with checks
-func ResponseAnalysis(resp *http.Response, signature data.Check) bool {
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	bodyString := string(bodyBytes)
-
+func ResponseAnalysis(resp *HTTPResponse, signature data.Check) bool {
+	// TODO a refactor
 	if signature.StatusCode != nil {
 		if int32(resp.StatusCode) != *signature.StatusCode {
 			return false
@@ -25,7 +16,7 @@ func ResponseAnalysis(resp *http.Response, signature data.Check) bool {
 	// all element needs to be found
 	if signature.AllMatch != nil {
 		for i := 0; i < len(signature.AllMatch); i++ {
-			if !strings.Contains(bodyString, *signature.AllMatch[i]) {
+			if !strings.Contains(resp.Body, *signature.AllMatch[i]) {
 				return false
 			}
 		}
@@ -35,7 +26,7 @@ func ResponseAnalysis(resp *http.Response, signature data.Check) bool {
 	if signature.Match != nil {
 		found := false
 		for i := 0; i < len(signature.Match); i++ {
-			if strings.Contains(bodyString, *signature.Match[i]) {
+			if strings.Contains(resp.Body, *signature.Match[i]) {
 				found = true
 			}
 		}
@@ -47,7 +38,7 @@ func ResponseAnalysis(resp *http.Response, signature data.Check) bool {
 	// if 1 element of list is not found
 	if signature.NoMatch != nil {
 		for i := 0; i < len(signature.NoMatch); i++ {
-			if strings.Contains(bodyString, *signature.NoMatch[i]) {
+			if strings.Contains(resp.Body, *signature.NoMatch[i]) {
 				return false
 			}
 		}
