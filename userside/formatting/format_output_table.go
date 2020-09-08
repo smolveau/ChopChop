@@ -1,14 +1,14 @@
-package pkg
+package formatting
 
 import (
-	"gochopchop/data"
+	"gochopchop/core"
 	"os"
 
 	"github.com/jedib0t/go-pretty/table"
 )
 
 // FormatOutputTable will render the data as a nice table
-func FormatOutputTable(out []data.Output) {
+func FormatOutputTable(out []core.Output) {
 
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)

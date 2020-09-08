@@ -1,4 +1,4 @@
-package data
+package core
 
 import "errors"
 
@@ -58,4 +58,11 @@ func (st SeverityType) IsValid() error {
 		return nil
 	}
 	return errors.New("Invalid Severity type. Please Check yaml config file")
+}
+
+// NewConfig returns a new initialized Config
+func NewConfig() *Config {
+	return &Config{
+		Insecure: false,
+	}
 }

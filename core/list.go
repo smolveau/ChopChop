@@ -1,7 +1,6 @@
-package app
+package core
 
 import (
-	"gochopchop/data"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,7 +23,7 @@ func List(cmd *cobra.Command, args []string) {
 
 	defer file.Close()
 	fileData, err := ioutil.ReadAll(file)
-	y := data.Config{}
+	y := Config{}
 
 	err = yaml.Unmarshal([]byte(fileData), &y)
 	if err != nil {

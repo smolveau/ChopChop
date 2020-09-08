@@ -1,4 +1,4 @@
-package pkg
+package httpget
 
 import (
 	"crypto/tls"

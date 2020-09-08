@@ -1,9 +1,9 @@
-package pkg
+package formatting
 
 import (
 	"encoding/json"
 	"fmt"
-	"gochopchop/data"
+	"gochopchop/core"
 	"log"
 	"os"
 )
@@ -28,7 +28,7 @@ type TestedURLs struct {
 }
 
 // AddVulnToOutputJSON will add the vuln to struct output
-func AddVulnToOutputJSON(out []data.Output) OutputJSON {
+func AddVulnToOutputJSON(out []core.Output) OutputJSON {
 	jsonOut := OutputJSON{}
 
 	for i := 0; i < len(out); i++ {

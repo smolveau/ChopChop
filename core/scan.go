@@ -1,10 +1,11 @@
-package app
+package core
 
 import (
 	"bufio"
 	"fmt"
-	"gochopchop/data"
-	"gochopchop/pkg"
+	"gochopchop/serverside/httpget"
+	"gochopchop/userside/formatting"
+
 	"io/ioutil"
 	"log"
 	"os"
@@ -18,17 +19,25 @@ import (
 
 type SafeData struct {
 	mux   sync.Mutex
-	out   []data.Output
+	out   []Output
 	block bool
 }
 
-func (s *SafeData) Add(d data.Output) {
+func (s *SafeData) Add(d Output) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.out = append(s.out, d)
 }
 
+type Scanner interface {
+	// Fetch returns the body of URL and
+	// a slice of URLs found on that page.
+	Scan(url string) (body string, urls []string, err error)
+}
+
 // Scan of domain via url
+// Init struct before scan function with all flags (config.go)
+// func Scan(config, options)
 func Scan(cmd *cobra.Command, args []string) {
 	timer := time.Now()
 
@@ -49,7 +58,7 @@ func Scan(cmd *cobra.Command, args []string) {
 	defer cfg.Close()
 
 	dataCfg, err := ioutil.ReadAll(cfg)
-	y := data.Config{}
+	y := Config{}
 	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
 		log.Fatal(err)
 	}
@@ -82,6 +91,8 @@ func Scan(cmd *cobra.Command, args []string) {
 	}
 
 	CheckStructFields(y)
+	// TODO TEST virer ce qui est au dessus de cette ligne
+	// virer les dépendances à l'extérieur (os)
 	wg := new(sync.WaitGroup)
 	safeData := new(SafeData)
 
@@ -101,15 +112,16 @@ func Scan(cmd *cobra.Command, args []string) {
 
 	elapsed := time.Since(timer)
 	log.Printf("Scan execution time: %s", elapsed)
+	// TODO Output and Timer as Presenters, CLI must do it
 	if len(safeData.out) > 0 {
 		dateNow := time.Now().Format("2006-01-02_15-04-05")
-		pkg.FormatOutputTable(safeData.out)
+		formatting.FormatOutputTable(safeData.out)
 		if json {
-			outputJSON := pkg.AddVulnToOutputJSON(safeData.out)
-			pkg.CreateFileJSON(dateNow, outputJSON)
+			outputJSON := formatting.AddVulnToOutputJSON(safeData.out)
+			formatting.CreateFileJSON(dateNow, outputJSON)
 		}
 		if csv {
-			pkg.FormatOutputCSV(dateNow, safeData.out)
+			formatting.FormatOutputCSV(dateNow, safeData.out)
 		}
 		if blockedFlag != "" {
 			fmt.Println("No critical vulnerabilities found...")
@@ -122,7 +134,12 @@ func Scan(cmd *cobra.Command, args []string) {
 	}
 }
 
-func scanURL(blockedFlag string, insecure bool, domain string, url string, plugin data.Plugin, safeData *SafeData, wg *sync.WaitGroup) {
+// Interface pour abstraction avec fonction scan
+// Ou class fetcher instantiable avec variables populer
+// https://tour.golang.org/concurrency/10
+
+// func scanURL(config, options, fetcher, safedata, wg)
+func scanURL(blockedFlag string, insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	// By default we follow HTTP redirects
@@ -132,7 +149,8 @@ func scanURL(blockedFlag string, insecure bool, domain string, url string, plugi
 		followRedirects = false
 	}
 
-	httpResponse, err := pkg.HTTPGet(insecure, url, followRedirects)
+	// virer HTTPGet pour une interface passée en parametre
+	httpResponse, err := httpget.HTTPGet(insecure, url, followRedirects)
 	if err != nil {
 		_ = errors.Wrap(err, "Timeout of HTTP Request")
 	}
@@ -149,14 +167,14 @@ func scanURL(blockedFlag string, insecure bool, domain string, url string, plugi
 	swg.Wait()
 }
 
-func scanHTTPResponse(httpResponse *pkg.HTTPResponse, url string, domain string, blockedFlag string, check data.Check, safeData *SafeData, swg *sync.WaitGroup) {
+func scanHTTPResponse(httpResponse *httpget.HTTPResponse, url string, domain string, blockedFlag string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
 	defer swg.Done()
-	match := pkg.ResponseAnalysis(httpResponse, check)
+	match := ResponseAnalysis(httpResponse, check)
 	if match {
 		if BlockCI(blockedFlag, *check.Severity) {
 			safeData.block = true
 		}
-		o := data.Output{
+		o := Output{
 			Domain:      domain,
 			PluginName:  check.PluginName,
 			TestedURL:   url,
@@ -168,22 +186,22 @@ func scanHTTPResponse(httpResponse *pkg.HTTPResponse, url string, domain string,
 }
 
 // BlockCI function will allow the user to return a different status code depending on the highest severity that has triggered
-func BlockCI(severity string, severityType data.SeverityType) bool {
+func BlockCI(severity string, severityType SeverityType) bool {
 	switch severity {
 	case "High":
-		if severityType == data.High {
+		if severityType == High {
 			return true
 		}
 	case "Medium":
-		if severityType == data.High || severityType == data.Medium {
+		if severityType == High || severityType == Medium {
 			return true
 		}
 	case "Low":
-		if severityType == data.High || severityType == data.Medium || severityType == data.Low {
+		if severityType == High || severityType == Medium || severityType == Low {
 			return true
 		}
 	case "Informational":
-		if severityType == data.High || severityType == data.Medium || severityType == data.Low || severityType == data.Informational {
+		if severityType == High || severityType == Medium || severityType == Low || severityType == Informational {
 			return true
 		}
 	}
@@ -191,7 +209,7 @@ func BlockCI(severity string, severityType data.SeverityType) bool {
 }
 
 // CheckStructFields will parse the YAML configuration file
-func CheckStructFields(conf data.Config) {
+func CheckStructFields(conf Config) {
 	for index, plugin := range conf.Plugins {
 		_ = index
 		for index, check := range plugin.Checks {
@@ -205,7 +223,7 @@ func CheckStructFields(conf data.Config) {
 			if check.Severity == nil {
 				log.Fatal("Missing severity field in " + check.PluginName + " plugin checks. Stopping execution.")
 			} else {
-				if err := data.SeverityType.IsValid(*check.Severity); err != nil {
+				if err := SeverityType.IsValid(*check.Severity); err != nil {
 					log.Fatal(" ------ Unknown severity type : " + string(*check.Severity) + " . Only Informational / Low / Medium / High are valid severity types.")
 				}
 			}

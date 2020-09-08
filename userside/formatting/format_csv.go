@@ -1,14 +1,14 @@
-package pkg
+package formatting
 
 import (
 	"fmt"
-	"gochopchop/data"
+	"gochopchop/core"
 	"log"
 	"os"
 )
 
 // FormatOutputCSV is a simple wrapper for CSV formatting
-func FormatOutputCSV(date string, out []data.Output) {
+func FormatOutputCSV(date string, out []core.Output) {
 	f, err := os.OpenFile("./gochopchop_"+date+".csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)

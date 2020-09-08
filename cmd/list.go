@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"gochopchop/app"
+	"gochopchop/core"
 	"log"
 	"os"
 	"strings"
@@ -20,7 +20,7 @@ var pluginCmd = &cobra.Command{
 	Use:   "plugins",
 	Short: "list checks of configuration file",
 	Args:  pluginCheckArgsAndFlags,
-	Run:   app.List,
+	Run:   core.List,
 }
 
 func pluginCheckArgsAndFlags(cmd *cobra.Command, args []string) error {

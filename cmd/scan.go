@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"gochopchop/app"
-	"gochopchop/data"
+	"gochopchop/core"
+
 	"io/ioutil"
 	"log"
 	"os"
@@ -98,7 +98,7 @@ func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
 	defer cfg.Close()
 	dataCfg, err := ioutil.ReadAll(cfg)
 
-	y := data.Config{}
+	y := core.Config{}
 	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
 		log.Fatal(err)
 	}

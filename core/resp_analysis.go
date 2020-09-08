@@ -1,12 +1,12 @@
-package pkg
+package core
 
 import (
-	"gochopchop/data"
+	"gochopchop/serverside/httpget"
 	"strings"
 )
 
 //ResponseAnalysis of HTTP Request with checks
-func ResponseAnalysis(resp *HTTPResponse, signature data.Check) bool {
+func ResponseAnalysis(resp *httpget.HTTPResponse, signature Check) bool {
 	// TODO a refactor
 	if signature.StatusCode != nil {
 		if int32(resp.StatusCode) != *signature.StatusCode {
