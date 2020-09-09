@@ -30,7 +30,7 @@ var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "scan URL endpoints to check if services/files/folders are exposed to the Internet",
 	Args:  scanCheckArgsAndFlags,
-	// TODO Add here loaded signature and config structs
+	// TODO Add here loaded signature and config structs HOW
 	Run: core.Scan,
 }
 
