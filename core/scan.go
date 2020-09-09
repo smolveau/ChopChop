@@ -1,12 +1,10 @@
 package core
 
 import (
-	"bufio"
 	"fmt"
 	"gochopchop/serverside/httpget"
 	"gochopchop/userside/formatting"
 
-	"io/ioutil"
 	"log"
 	"os"
 	"sync"
@@ -14,7 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 type SafeData struct {
@@ -29,101 +26,50 @@ func (s *SafeData) Add(d Output) {
 	s.out = append(s.out, d)
 }
 
-type Scanner interface {
-	// Fetch returns the body of URL and
-	// a slice of URLs found on that page.
-	Scan(url string) (body string, urls []string, err error)
-}
-
 // Scan of domain via url
 // Init struct before scan function with all flags (config.go)
 // func Scan(config, options)
-func Scan(cmd *cobra.Command, args []string) {
+func Scan(cmd *cobra.Command, signature Signature, config Config) {
+	// TODO Those flags needs to be loaded by CLI into a config struct and just give the struct to Scan function from CLI Function
 	timer := time.Now()
 
-	url, _ := cmd.Flags().GetString("url")
-	insecure, _ := cmd.Flags().GetBool("insecure")
-	csv, _ := cmd.Flags().GetBool("csv")
-	json, _ := cmd.Flags().GetBool("json")
-	urlFile, _ := cmd.Flags().GetString("url-file")
-	configFile, _ := cmd.Flags().GetString("config-file")
-	suffix, _ := cmd.Flags().GetString("suffix")
-	prefix, _ := cmd.Flags().GetString("prefix")
-	blockedFlag, _ := cmd.Flags().GetString("block")
+	// TODO LOAD INTO FUNCTION CONFIG AND SIGNATURE STRUCT
 
-	cfg, err := os.Open(configFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer cfg.Close()
-
-	dataCfg, err := ioutil.ReadAll(cfg)
-	y := Config{}
-	if err = yaml.Unmarshal([]byte(dataCfg), &y); err != nil {
-		log.Fatal(err)
-	}
-
-	var urlList []string
-	if url != "" {
-		urlList = append(urlList, url)
-	}
-
-	if urlFile != "" {
-		urlFileContent, err := os.Open(urlFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer urlFileContent.Close()
-
-		scanner := bufio.NewScanner(urlFileContent)
-		for scanner.Scan() {
-			urlList = append(urlList, scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	if insecure {
-		fmt.Println("Launching scan without validating the SSL certificate")
-	} else {
-		insecure = y.Insecure
-	}
-
-	CheckStructFields(y)
-	// TODO TEST virer ce qui est au dessus de cette ligne
+	// TODO virer ce qui est au dessus de cette ligne
 	// virer les dépendances à l'extérieur (os)
 	wg := new(sync.WaitGroup)
 	safeData := new(SafeData)
 
-	for _, domain := range urlList {
-		url := prefix + domain + suffix
+	for _, domain := range config.UrlList {
+		url := config.Prefix + domain + config.Suffix
 		fmt.Println("Testing domain : ", url)
-		for _, plugin := range y.Plugins {
+		for _, plugin := range signature.Plugins {
 			fullURL := url + fmt.Sprint(plugin.URI)
 			if plugin.QueryString != "" {
 				fullURL += "?" + plugin.QueryString
 			}
 			wg.Add(1)
-			go scanURL(blockedFlag, insecure, domain, fullURL, plugin, safeData, wg)
+			go scanURL(config.Block, signature.Insecure, domain, fullURL, plugin, safeData, wg)
 		}
 	}
 	wg.Wait() // blocking operation
 
 	elapsed := time.Since(timer)
 	log.Printf("Scan execution time: %s", elapsed)
+
 	// TODO Output and Timer as Presenters, CLI must do it
+	// Give safeData struct populated to an interface which will check the config struct for json-csv-blockedFlag flags
 	if len(safeData.out) > 0 {
 		dateNow := time.Now().Format("2006-01-02_15-04-05")
 		formatting.FormatOutputTable(safeData.out)
-		if json {
+		if config.Json {
 			outputJSON := formatting.AddVulnToOutputJSON(safeData.out)
 			formatting.CreateFileJSON(dateNow, outputJSON)
 		}
-		if csv {
+		if config.Csv {
 			formatting.FormatOutputCSV(dateNow, safeData.out)
 		}
-		if blockedFlag != "" {
+		if config.Block != "" {
 			fmt.Println("No critical vulnerabilities found...")
 			os.Exit(0)
 		}
@@ -206,27 +152,4 @@ func BlockCI(severity string, severityType SeverityType) bool {
 		}
 	}
 	return false
-}
-
-// CheckStructFields will parse the YAML configuration file
-func CheckStructFields(conf Config) {
-	for index, plugin := range conf.Plugins {
-		_ = index
-		for index, check := range plugin.Checks {
-			_ = index
-			if check.Description == nil {
-				log.Fatal("Missing description field in " + check.PluginName + " plugin checks. Stopping execution.")
-			}
-			if check.Remediation == nil {
-				log.Fatal("Missing remediation field in " + check.PluginName + " plugin checks. Stopping execution.")
-			}
-			if check.Severity == nil {
-				log.Fatal("Missing severity field in " + check.PluginName + " plugin checks. Stopping execution.")
-			} else {
-				if err := SeverityType.IsValid(*check.Severity); err != nil {
-					log.Fatal(" ------ Unknown severity type : " + string(*check.Severity) + " . Only Informational / Low / Medium / High are valid severity types.")
-				}
-			}
-		}
-	}
 }

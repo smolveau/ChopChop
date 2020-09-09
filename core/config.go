@@ -45,8 +45,21 @@ type Plugin struct {
 	FollowRedirects *bool   `yaml:"follow_redirects"`
 }
 
-// Config struct to load the configuration from the YAML file
+// Struct for config flags
 type Config struct {
+	Url           string
+	SignatureFile string
+	UrlFile       string
+	Suffix        string
+	Prefix        string
+	Block         string
+	Csv           bool
+	Json          bool
+	UrlList       []string
+}
+
+// Signature struct to load the plugins/rules from the YAML file
+type Signature struct {
 	Insecure bool     `yaml:"insecure"`
 	Plugins  []Plugin `yaml:"plugins"`
 }
@@ -61,8 +74,8 @@ func (st SeverityType) IsValid() error {
 }
 
 // NewConfig returns a new initialized Config
-func NewConfig() *Config {
-	return &Config{
+func NewConfig() *Signature {
+	return &Signature{
 		Insecure: false,
 	}
 }
