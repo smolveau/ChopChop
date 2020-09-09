@@ -1,5 +1,5 @@
 package core
 
-type Scanner interface {
+type IScanner interface {
 	ScanURL(config Config) (body string, urls []string, err error)
 }

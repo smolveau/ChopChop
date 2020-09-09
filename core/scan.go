@@ -3,14 +3,9 @@ package core
 import (
 	"fmt"
 	"gochopchop/serverside/httpget"
-	"gochopchop/userside/formatting"
-	"log"
-	"os"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
 )
 
 type SafeData struct {
@@ -28,51 +23,27 @@ func (s *SafeData) Add(d Output) {
 // Scan of domain via url
 // Init struct before scan function with all flags (config.go)
 // func Scan(config, options)
-func Scan(cmd *cobra.Command, signature Signature, config Config) {
-	timer := time.Now()
-
+func Scan(signatures *Signatures, config *Config) ([]Output, bool, error) {
 	// virer les dépendances à l'extérieur (os)
 	wg := new(sync.WaitGroup)
 	safeData := new(SafeData)
 
-	for _, domain := range config.UrlList {
-		url := config.Prefix + domain + config.Suffix
+	for _, domain := range config.Urls {
+		// TODO replace par un string formatter
+		url := fmt.Sprintf("%s://%s", config.Protocol, domain)
 		fmt.Println("Testing domain : ", url)
-		for _, plugin := range signature.Plugins {
+		for _, plugin := range signatures.Plugins {
 			fullURL := url + fmt.Sprint(plugin.URI)
 			if plugin.QueryString != "" {
 				fullURL += "?" + plugin.QueryString
 			}
 			wg.Add(1)
-			go scanURL(config.Block, signature.Insecure, domain, fullURL, plugin, safeData, wg)
+			go scanURL(config.Block, config.Insecure, domain, fullURL, plugin, safeData, wg)
 		}
 	}
 	wg.Wait() // blocking operation
 
-	elapsed := time.Since(timer)
-	log.Printf("Scan execution time: %s", elapsed)
-
-	// TODO Output and Timer as Presenters, CLI must do it
-	// Give safeData struct populated to an interface which will check the config struct for json-csv-blockedFlag flags
-	if len(safeData.out) > 0 {
-		dateNow := time.Now().Format("2006-01-02_15-04-05")
-		formatting.FormatOutputTable(safeData.out)
-		if config.Json {
-			outputJSON := formatting.AddVulnToOutputJSON(safeData.out)
-			formatting.CreateFileJSON(dateNow, outputJSON)
-		}
-		if config.Csv {
-			formatting.FormatOutputCSV(dateNow, safeData.out)
-		}
-		if config.Block != "" {
-			fmt.Println("No critical vulnerabilities found...")
-			os.Exit(0)
-		}
-		os.Exit(1)
-	} else {
-		fmt.Println("No vulnerabilities found. Exiting...")
-		os.Exit(0)
-	}
+	return safeData.out, safeData.block, nil
 }
 
 // Interface pour abstraction avec fonction scan
@@ -90,7 +61,7 @@ func scanURL(blockedFlag string, insecure bool, domain string, url string, plugi
 		followRedirects = false
 	}
 
-	// virer HTTPGet pour une interface passée en parametre
+	// TODO virer HTTPGet pour une interface passée en parametre
 	httpResponse, err := httpget.HTTPGet(insecure, url, followRedirects)
 	if err != nil {
 		_ = errors.Wrap(err, "Timeout of HTTP Request")

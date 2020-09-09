@@ -1,5 +1,5 @@
 package core
 
-type HTTPGetter interface {
+type IHTTPGetter interface {
 	HttpGet(url string)
 }

@@ -47,20 +47,16 @@ type Plugin struct {
 
 // Struct for config flags
 type Config struct {
-	Url           string
-	SignatureFile string
-	Insecure      bool
-	UrlFile       string
-	Suffix        string
-	Prefix        string
-	Block         string
-	Csv           bool
-	Json          bool
-	UrlList       []string
+	Insecure bool
+	Protocol string
+	Block    string
+	Csv      bool // renommer pour que cela soit plus representatif
+	Json     bool
+	Urls     []string
 }
 
 // Signature struct to load the plugins/rules from the YAML file
-type Signature struct {
+type Signatures struct {
 	Plugins []Plugin `yaml:"plugins"`
 }
 
@@ -73,7 +69,7 @@ func (st SeverityType) IsValid() error {
 	return errors.New("Invalid Severity type. Please Check yaml config file")
 }
 
-// NewConfig returns a new initialized Config
-func NewConfig() *Signature {
-	return &Signature{}
+// NewConfig returns a new initialized Signatures
+func NewSignatures() *Signatures {
+	return &Signatures{}
 }
