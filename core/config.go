@@ -49,6 +49,7 @@ type Plugin struct {
 type Config struct {
 	Url           string
 	SignatureFile string
+	Insecure      bool
 	UrlFile       string
 	Suffix        string
 	Prefix        string
@@ -60,8 +61,7 @@ type Config struct {
 
 // Signature struct to load the plugins/rules from the YAML file
 type Signature struct {
-	Insecure bool     `yaml:"insecure"`
-	Plugins  []Plugin `yaml:"plugins"`
+	Plugins []Plugin `yaml:"plugins"`
 }
 
 // IsValid will verify that the severityType is part of the enum previously declared
@@ -75,7 +75,5 @@ func (st SeverityType) IsValid() error {
 
 // NewConfig returns a new initialized Config
 func NewConfig() *Signature {
-	return &Signature{
-		Insecure: false,
-	}
+	return &Signature{}
 }

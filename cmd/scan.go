@@ -31,10 +31,26 @@ var scanCmd = &cobra.Command{
 	Short: "scan URL endpoints to check if services/files/folders are exposed to the Internet",
 	Args:  scanCheckArgsAndFlags,
 	// TODO Add here loaded signature and config structs
-	Run: core.Scan,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Load Signatures into struct
+		signatureFile, err := cmd.Flags().GetString("signature-file")
+		if err != nil {
+			return fmt.Errorf("invalid value for signatureFile: %v", err)
+		}
+		signatures, err := LoadSignature(signatureFile)
+		if err != nil {
+			return fmt.Errorf("", err)
+		}
+		CheckStructFields(signatures)
+
+		// TODO Doit on recuperer tout les args et les fill ?
+		config := fillConfig()
+		return nil
+	},
 }
 
 func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
+	// TODO UNUSED THINGS
 	url, err := cmd.Flags().GetString("url")
 	if err != nil {
 		return fmt.Errorf("invalid value for url: %v", err)
@@ -118,30 +134,21 @@ func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
 	if err := cmd.Flags().Set("block", block); err != nil {
 		return fmt.Errorf("error while setting block flag")
 	}
+	return nil
+}
 
-	// Load Signatures into struct
-	signatures, err := LoadSignature(signatureFile)
-	if err != nil {
-		return fmt.Errorf("", err)
-	}
-	if insecure {
-		fmt.Println("Launching scan without validating the SSL certificate")
-	} else {
-		insecure = signatures.Insecure
-	}
-	CheckStructFields(signatures)
+func fillConfig(url string, signatureFile string, insecure bool, urlFile string, suffix string, prefix string, block string, csv bool, json bool) core.Config {
+	config := core.Config{}
 	var urlList []string
 	if url != "" {
 		urlList = append(urlList, url)
 	}
-
 	if urlFile != "" {
 		urlFileContent, err := os.Open(urlFile)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer urlFileContent.Close()
-
 		scanner := bufio.NewScanner(urlFileContent)
 		for scanner.Scan() {
 			urlList = append(urlList, scanner.Text())
@@ -152,9 +159,10 @@ func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load config flags in config struct
-	config := core.Config{
+	config = core.Config{
 		Url:           url,
 		SignatureFile: signatureFile,
+		Insecure:      insecure,
 		UrlFile:       urlFile,
 		Suffix:        suffix,
 		Prefix:        prefix,
@@ -164,7 +172,7 @@ func scanCheckArgsAndFlags(cmd *cobra.Command, args []string) error {
 		UrlList:       urlList,
 	}
 
-	return nil
+	return config
 }
 
 func LoadSignature(signatureFile string) (core.Signature, error) {

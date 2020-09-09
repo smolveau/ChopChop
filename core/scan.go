@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"gochopchop/serverside/httpget"
 	"gochopchop/userside/formatting"
-
 	"log"
 	"os"
 	"sync"
@@ -30,12 +29,8 @@ func (s *SafeData) Add(d Output) {
 // Init struct before scan function with all flags (config.go)
 // func Scan(config, options)
 func Scan(cmd *cobra.Command, signature Signature, config Config) {
-	// TODO Those flags needs to be loaded by CLI into a config struct and just give the struct to Scan function from CLI Function
 	timer := time.Now()
 
-	// TODO LOAD INTO FUNCTION CONFIG AND SIGNATURE STRUCT
-
-	// TODO virer ce qui est au dessus de cette ligne
 	// virer les dépendances à l'extérieur (os)
 	wg := new(sync.WaitGroup)
 	safeData := new(SafeData)
