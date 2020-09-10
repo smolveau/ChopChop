@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"gochopchop/serverside/httpget"
+	"net/http"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -20,20 +21,24 @@ func (s *SafeData) Add(d Output) {
 	s.out = append(s.out, d)
 }
 
+type IFetcher interface {
+	Fetch(url string) (*http.Response, error)
+}
+
+type Scanner struct {
+	Fetcher IFetcher
+}
+
 // Scan of domain via url
-// Init struct before scan function with all flags (config.go)
-// func Scan(config, options)
 func Scan(signatures *Signatures, config *Config) ([]Output, bool, error) {
-	// virer les dépendances à l'extérieur (os)
 	wg := new(sync.WaitGroup)
 	safeData := new(SafeData)
 
 	for _, domain := range config.Urls {
-		// TODO replace par un string formatter
 		url := fmt.Sprintf("%s://%s", config.Protocol, domain)
 		fmt.Println("Testing domain : ", url)
 		for _, plugin := range signatures.Plugins {
-			fullURL := url + fmt.Sprint(plugin.URI)
+			fullURL := fmt.Sprintf("%s%s", url, plugin.URI)
 			if plugin.QueryString != "" {
 				fullURL += "?" + plugin.QueryString
 			}
@@ -41,17 +46,13 @@ func Scan(signatures *Signatures, config *Config) ([]Output, bool, error) {
 			go scanURL(config.Block, config.Insecure, domain, fullURL, plugin, safeData, wg)
 		}
 	}
-	wg.Wait() // blocking operation
+	wg.Wait()
 
 	return safeData.out, safeData.block, nil
 }
 
-// Interface pour abstraction avec fonction scan
-// Ou class fetcher instantiable avec variables populer
-// https://tour.golang.org/concurrency/10
-
 // func scanURL(config, options, fetcher, safedata, wg)
-func scanURL(blockedFlag string, insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
+func (s Scanner) scanURL(blockedFlag string, insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	// By default we follow HTTP redirects
@@ -92,11 +93,12 @@ func scanHTTPResponse(httpResponse *httpget.HTTPResponse, url string, domain str
 			TestedURL:   url,
 			Severity:    string(*check.Severity),
 			Remediation: *check.Remediation,
-		} // WARNING attention à la taille du tableau final, bcp de recopie d'infos
+		}
 		safeData.Add(o)
 	}
 }
 
+// TODO BOUGEZ LA METHODE DE BLOCK CI DANS FORMATTING
 // BlockCI function will allow the user to return a different status code depending on the highest severity that has triggered
 func BlockCI(severity string, severityType SeverityType) bool {
 	switch severity {

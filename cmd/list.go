@@ -56,10 +56,13 @@ func parseOptions(cmd *cobra.Command) (*ListOptions, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid value for severity: %v", err)
 	}
-	if severity == "High" || severity == "Medium" || severity == "Low" || severity == "Informational" {
-		options.Severity = severity
-	} else {
-		return nil, fmt.Errorf(" ------ Unknown severity type : %s . Only Informational / Low / Medium / High are valid severity types.", severity)
+	if severity != "" {
+		if severity == "High" || severity == "Medium" || severity == "Low" || severity == "Informational" {
+			options.Severity = severity
+		} else {
+			return nil, fmt.Errorf(" ------ Unknown severity type : %s . Only Informational / Low / Medium / High are valid severity types.", severity)
+		}
 	}
+
 	return options, nil
 }

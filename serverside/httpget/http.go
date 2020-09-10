@@ -14,8 +14,20 @@ type HTTPResponse struct {
 	Header     http.Header
 }
 
-//HTTPGet return http response of http get request
-func HTTPGet(insecure bool, url string, followRedirects bool) (*HTTPResponse, error) {
+type IHTTPClient interface {
+	Get(url string) (*http.Response, error)
+}
+
+type HTTPClient struct {
+	Transport http.RoundTripper
+	Timeout   time.Duration
+}
+
+type Fetcher struct {
+	Netclient IHTTPClient
+}
+
+func NewFetcher(insecure bool) *Fetcher {
 	tr := &http.Transport{}
 	if insecure {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -24,18 +36,21 @@ func HTTPGet(insecure bool, url string, followRedirects bool) (*HTTPResponse, er
 		Transport: tr,
 		Timeout:   time.Second * 3,
 	}
+	return &Fetcher{
+		Netclient: netClient,
+	}
+}
 
-	// If we don't want to follow HTTP redirects
+func (s Fetcher) Fetch(url string, followRedirects bool) (*HTTPResponse, error) {
+	// implements the core/IFetcher interface
 	if followRedirects == false {
 		// We tell the HTTP Client to don't follow them
-		netClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		s.Netclient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
 	}
-
-	resp, err := netClient.Get(url)
+	resp, err := s.Netclient.Get(url)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 	defer resp.Body.Close()
