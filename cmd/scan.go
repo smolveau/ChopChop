@@ -27,7 +27,7 @@ func init() {
 	scanCmd.Flags().StringP("url-file", "f", "", "path to a specified file containing urls to test") // --uri-file ou -f
 	scanCmd.Flags().StringP("prefix", "p", "", "Add prefix to urls when flag url-file is specified") // --prefix ou -p
 	// TODO changer le nom en max-severity
-	scanCmd.Flags().StringP("block", "b", "", "Block pipeline if severity is over or equal specified flag") // --block ou -b
+	scanCmd.Flags().StringP("max-severity", "b", "", "maxSeverity pipeline if severity is over or equal specified flag") // --max-severity ou -m
 	// soit csv soit json via une liste genre --format json ou --format csv
 	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file") //--csv
 	scanCmd.Flags().BoolP("json", "", false, "output as a json file")
@@ -46,13 +46,16 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// call core with struct
 	begin := time.Now()
 	// Scan doit return une struct populer output
-	result, blocking, err := core.Scan(signatures, config)
+	result, err := core.Scan(signatures, config)
 	elapsed := time.Since(begin)
 	log.Printf("Scan execution time: %s", elapsed)
+
+	// TODO CHECK HERE IF FLAG MAX SEVERITY ASSIGNED AND IF BLOCK CI
 
 	if len(result) > 0 {
 		dateNow := time.Now().Format("2006-01-02_15-04-05")
 		formatting.FormatOutputTable(result)
+
 		if config.Json {
 			outputJSON := formatting.AddVulnToOutputJSON(result)
 			formatting.CreateFileJSON(dateNow, outputJSON)
@@ -60,6 +63,18 @@ func runScan(cmd *cobra.Command, args []string) error {
 		if config.Csv {
 			formatting.FormatOutputCSV(dateNow, result)
 		}
+
+		if config.MaxSeverity != "" {
+			blocking := false
+			for _, output := range result {
+				for _, severity := range output.Severity {
+					if BlockCI(config.MaxSeverity, severity) {
+						block = true
+					}
+				}
+			}
+		}
+
 		if !blocking {
 			fmt.Println("No critical vulnerabilities found...")
 			return nil
@@ -101,15 +116,15 @@ func checkArgsAndFlags(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("protocol flag can't be assigned if flag url-file is not specified")
 		}
 	}
-	block, err := cmd.Flags().GetString("block")
+	maxSeverity, err := cmd.Flags().GetString("maxSeverity")
 	if err != nil {
-		return fmt.Errorf("invalid value for block: %v", err)
+		return fmt.Errorf("invalid value for maxSeverity: %v", err)
 	}
-	if block != "" {
-		if block == "High" || block == "Medium" || block == "Low" || block == "Informational" {
-			fmt.Println("Block pipeline if severity is over or equal : " + block)
+	if maxSeverity != "" {
+		if maxSeverity == "High" || maxSeverity == "Medium" || maxSeverity == "Low" || maxSeverity == "Informational" {
+			fmt.Println("maxSeverity pipeline if severity is over or equal : " + maxSeverity)
 		} else {
-			log.Fatal(" ------ Unknown severity type : " + block + " . Only Informational / Low / Medium / High are valid severity types.")
+			log.Fatal(" ------ Unknown severity type : " + maxSeverity + " . Only Informational / Low / Medium / High are valid severity types.")
 		}
 	}
 	if _, err = cmd.Flags().GetBool("insecure"); err != nil {
@@ -130,7 +145,7 @@ func parseConfig(cmd *cobra.Command) (*core.Config, error) {
 	insecure, _ := cmd.Flags().GetBool("insecure")
 	urlFile, _ := cmd.Flags().GetString("url-file")
 	protocol, _ := cmd.Flags().GetString("protocol")
-	block, _ := cmd.Flags().GetString("block")
+	maxSeverity, _ := cmd.Flags().GetString("max-severity")
 	csv, _ := cmd.Flags().GetBool("csv")
 	json, _ := cmd.Flags().GetBool("json")
 
@@ -155,13 +170,36 @@ func parseConfig(cmd *cobra.Command) (*core.Config, error) {
 
 	// Load config flags in config struct
 	config := &core.Config{
-		Insecure: insecure,
-		Protocol: protocol,
-		Block:    block,
-		Csv:      csv,
-		Json:     json,
-		Urls:     urls,
+		Insecure:    insecure,
+		Protocol:    protocol,
+		maxSeverity: maxSeverity,
+		Csv:         csv,
+		Json:        json,
+		Urls:        urls,
 	}
 
 	return config, nil
+}
+
+// BlockCI function will allow the user to return a different status code depending on the highest severity that has triggered
+func BlockCI(severity string, severityType SeverityType) bool {
+	switch severity {
+	case "High":
+		if severityType == High {
+			return true
+		}
+	case "Medium":
+		if severityType == High || severityType == Medium {
+			return true
+		}
+	case "Low":
+		if severityType == High || severityType == Medium || severityType == Low {
+			return true
+		}
+	case "Informational":
+		if severityType == High || severityType == Medium || severityType == Low || severityType == Informational {
+			return true
+		}
+	}
+	return false
 }

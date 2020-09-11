@@ -47,12 +47,12 @@ type Plugin struct {
 
 // Struct for config flags
 type Config struct {
-	Insecure bool
-	Protocol string
-	Block    string
-	Csv      bool // renommer pour que cela soit plus representatif
-	Json     bool
-	Urls     []string
+	Insecure    bool
+	Protocol    string
+	MaxSeverity string
+	Csv         bool // renommer pour que cela soit plus representatif
+	Json        bool
+	Urls        []string
 }
 
 // Signature struct to load the plugins/rules from the YAML file

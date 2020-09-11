@@ -10,9 +10,8 @@ import (
 )
 
 type SafeData struct {
-	mux   sync.Mutex
-	out   []Output
-	block bool
+	mux sync.Mutex
+	out []Output
 }
 
 func (s *SafeData) Add(d Output) {
@@ -30,7 +29,7 @@ type Scanner struct {
 }
 
 // Scan of domain via url
-func Scan(signatures *Signatures, config *Config) ([]Output, bool, error) {
+func Scan(signatures *Signatures, config *Config) ([]Output, error) {
 	wg := new(sync.WaitGroup)
 	safeData := new(SafeData)
 
@@ -43,16 +42,16 @@ func Scan(signatures *Signatures, config *Config) ([]Output, bool, error) {
 				fullURL += "?" + plugin.QueryString
 			}
 			wg.Add(1)
-			go scanURL(config.Block, config.Insecure, domain, fullURL, plugin, safeData, wg)
+			go scanURL(config.Insecure, domain, fullURL, plugin, safeData, wg)
 		}
 	}
 	wg.Wait()
 
-	return safeData.out, safeData.block, nil
+	return safeData.out, nil
 }
 
 // func scanURL(config, options, fetcher, safedata, wg)
-func (s Scanner) scanURL(blockedFlag string, insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
+func (s Scanner) scanURL(insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	// By default we follow HTTP redirects
@@ -75,18 +74,15 @@ func (s Scanner) scanURL(blockedFlag string, insecure bool, domain string, url s
 	swg := new(sync.WaitGroup)
 	for _, check := range plugin.Checks {
 		swg.Add(1)
-		go scanHTTPResponse(httpResponse, url, domain, blockedFlag, check, safeData, swg)
+		go scanHTTPResponse(httpResponse, url, domain, check, safeData, swg)
 	}
 	swg.Wait()
 }
 
-func scanHTTPResponse(httpResponse *httpget.HTTPResponse, url string, domain string, blockedFlag string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
+func scanHTTPResponse(httpResponse *httpget.HTTPResponse, url string, domain string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
 	defer swg.Done()
 	match := ResponseAnalysis(httpResponse, check)
 	if match {
-		if BlockCI(blockedFlag, *check.Severity) {
-			safeData.block = true
-		}
 		o := Output{
 			Domain:      domain,
 			PluginName:  check.PluginName,
@@ -96,28 +92,4 @@ func scanHTTPResponse(httpResponse *httpget.HTTPResponse, url string, domain str
 		}
 		safeData.Add(o)
 	}
-}
-
-// TODO BOUGEZ LA METHODE DE BLOCK CI DANS FORMATTING
-// BlockCI function will allow the user to return a different status code depending on the highest severity that has triggered
-func BlockCI(severity string, severityType SeverityType) bool {
-	switch severity {
-	case "High":
-		if severityType == High {
-			return true
-		}
-	case "Medium":
-		if severityType == High || severityType == Medium {
-			return true
-		}
-	case "Low":
-		if severityType == High || severityType == Medium || severityType == Low {
-			return true
-		}
-	case "Informational":
-		if severityType == High || severityType == Medium || severityType == Low || severityType == Informational {
-			return true
-		}
-	}
-	return false
 }
