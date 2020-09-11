@@ -1,6 +1,9 @@
 package core
 
-import "errors"
+import (
+	"errors"
+	"net/http"
+)
 
 // Output structure for each findings
 type Output struct {
@@ -11,10 +14,15 @@ type Output struct {
 	Remediation string
 }
 
+type HTTPResponse struct {
+	StatusCode int
+	Body       string
+	Header     http.Header
+}
+
 // SeverityType is basically an enum and values can be from Info, Low, Medium and High
 type SeverityType string
 
-const (
 	// Informational will be the default severityType
 	Informational SeverityType = "Informational"
 	// Low severity

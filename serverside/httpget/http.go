@@ -8,14 +8,8 @@ import (
 	"time"
 )
 
-type HTTPResponse struct {
-	StatusCode int
-	Body       string
-	Header     http.Header
-}
-
 type IHTTPClient interface {
-	Get(url string) (*http.Response, error)
+	Fetch(url string, followRedirects bool) (*core.HTTPResponse, error)
 }
 
 type HTTPClient struct {
@@ -41,7 +35,7 @@ func NewFetcher(insecure bool) *Fetcher {
 	}
 }
 
-func (s Fetcher) Fetch(url string, followRedirects bool) (*HTTPResponse, error) {
+func (s Fetcher) Fetch(url string, followRedirects bool) (*core.HTTPResponse, error) {
 	// implements the core/IFetcher interface
 	if followRedirects == false {
 		// We tell the HTTP Client to don't follow them

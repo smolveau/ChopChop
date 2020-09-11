@@ -50,8 +50,6 @@ func runScan(cmd *cobra.Command, args []string) error {
 	elapsed := time.Since(begin)
 	log.Printf("Scan execution time: %s", elapsed)
 
-	// TODO CHECK HERE IF FLAG MAX SEVERITY ASSIGNED AND IF BLOCK CI
-
 	if len(result) > 0 {
 		dateNow := time.Now().Format("2006-01-02_15-04-05")
 		formatting.FormatOutputTable(result)

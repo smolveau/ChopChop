@@ -21,7 +21,11 @@ func (s *SafeData) Add(d Output) {
 }
 
 type IFetcher interface {
-	Fetch(url string) (*http.Response, error)
+	Fetch(insecure, url, followRedirects) (*http.Response, error)
+}
+
+type IScanner interface {
+	Scan(signatures *Signatures, config *Config) ([]Output, error)
 }
 
 type Scanner struct {
@@ -29,7 +33,7 @@ type Scanner struct {
 }
 
 // Scan of domain via url
-func Scan(signatures *Signatures, config *Config) ([]Output, error) {
+func (s Scanner) Scan(signatures *Signatures, config *Config) ([]Output, error) {
 	wg := new(sync.WaitGroup)
 	safeData := new(SafeData)
 
@@ -42,7 +46,7 @@ func Scan(signatures *Signatures, config *Config) ([]Output, error) {
 				fullURL += "?" + plugin.QueryString
 			}
 			wg.Add(1)
-			go scanURL(config.Insecure, domain, fullURL, plugin, safeData, wg)
+			go s.scanURL(config.Insecure, domain, fullURL, plugin, safeData, wg)
 		}
 	}
 	wg.Wait()
@@ -62,7 +66,7 @@ func (s Scanner) scanURL(insecure bool, domain string, url string, plugin Plugin
 	}
 
 	// TODO virer HTTPGet pour une interface passée en parametre
-	httpResponse, err := httpget.HTTPGet(insecure, url, followRedirects)
+	httpResponse, err := s.Fetcher.Fetch(url, followRedirects)
 	if err != nil {
 		_ = errors.Wrap(err, "Timeout of HTTP Request")
 	}
