@@ -2,8 +2,7 @@ package core
 
 import (
 	"fmt"
-	"gochopchop/serverside/httpget"
-	"net/http"
+	"gochopchop/internal"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -21,7 +20,7 @@ func (s *SafeData) Add(d Output) {
 }
 
 type IFetcher interface {
-	Fetch(insecure, url, followRedirects) (*http.Response, error)
+	Fetch(url string, followRedirects bool) (*internal.HTTPResponse, error)
 }
 
 type IScanner interface {
@@ -65,7 +64,6 @@ func (s Scanner) scanURL(insecure bool, domain string, url string, plugin Plugin
 		followRedirects = false
 	}
 
-	// TODO virer HTTPGet pour une interface passée en parametre
 	httpResponse, err := s.Fetcher.Fetch(url, followRedirects)
 	if err != nil {
 		_ = errors.Wrap(err, "Timeout of HTTP Request")
@@ -83,7 +81,7 @@ func (s Scanner) scanURL(insecure bool, domain string, url string, plugin Plugin
 	swg.Wait()
 }
 
-func scanHTTPResponse(httpResponse *httpget.HTTPResponse, url string, domain string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
+func scanHTTPResponse(httpResponse *HTTPResponse, url string, domain string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
 	defer swg.Done()
 	match := ResponseAnalysis(httpResponse, check)
 	if match {

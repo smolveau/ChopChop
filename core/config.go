@@ -14,12 +14,6 @@ type Output struct {
 	Remediation string
 }
 
-type HTTPResponse struct {
-	StatusCode int
-	Body       string
-	Header     http.Header
-}
-
 // SeverityType is basically an enum and values can be from Info, Low, Medium and High
 type SeverityType string
 

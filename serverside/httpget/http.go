@@ -2,6 +2,7 @@ package httpget
 
 import (
 	"crypto/tls"
+	"gochopchop/internal"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -9,7 +10,7 @@ import (
 )
 
 type IHTTPClient interface {
-	Fetch(url string, followRedirects bool) (*core.HTTPResponse, error)
+	Fetch(url string, followredirect bool) (*internal.HTTPResponse, error)
 }
 
 type HTTPClient struct {
@@ -19,6 +20,10 @@ type HTTPClient struct {
 
 type Fetcher struct {
 	Netclient IHTTPClient
+}
+
+func (s HTTPClient) Fetch(url string, followRedirects bool) (*internal.HTTPResponse, error) {
+
 }
 
 func NewFetcher(insecure bool) *Fetcher {
@@ -35,15 +40,9 @@ func NewFetcher(insecure bool) *Fetcher {
 	}
 }
 
-func (s Fetcher) Fetch(url string, followRedirects bool) (*core.HTTPResponse, error) {
+func (s Fetcher) Fetch(url string, followRedirects bool) (*internal.HTTPResponse, error) {
 	// implements the core/IFetcher interface
-	if followRedirects == false {
-		// We tell the HTTP Client to don't follow them
-		s.Netclient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		}
-	}
-	resp, err := s.Netclient.Get(url)
+	resp, err := s.Netclient.Fetch(url, false)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +55,7 @@ func (s Fetcher) Fetch(url string, followRedirects bool) (*core.HTTPResponse, er
 	}
 	bodyString := string(bodyBytes)
 
-	var r = &HTTPResponse{
+	var r = &internal.HTTPResponse{
 		Body:       bodyString,
 		StatusCode: resp.StatusCode,
 		Header:     resp.Header,
