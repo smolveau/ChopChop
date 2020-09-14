@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"gochopchop/core"
-	"log"
 	"os"
 	"time"
 )
 
 // TODO REFACTOR NAMES OF JSON ( endpoints ? PAth ? url ? )
+// faire la structure du JSON qui soit logique et ait du sens
+// quest ce que chopchop fait rellement et quels sont les resultats attendus pour cette commande là
+// comme on est dans un package a part en plus, eske cette structure de resultat est la meme pour toutes les commandes ?
 type outputJSON struct {
 	domains []domains `json:"domains"`
 }
@@ -66,15 +68,14 @@ func ExportJSON(out []core.Output) error {
 	filename := fmt.Sprintf("./gochopchop_%s.json", now)
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	file, _ := json.MarshalIndent(jsonOut, "", " ")
 
 	_, err = f.Write([]byte(file))
 	if err != nil {
-		// TODO pas de fatal
-		return fmt.Errorf(err)
+		return err
 	}
 	fmt.Printf("Output as json : %s", filename)
 	f.Close()
