@@ -3,28 +3,32 @@ package formatting
 import (
 	"fmt"
 	"gochopchop/core"
-	"log"
 	"os"
+	"time"
 )
 
-// FormatOutputCSV is a simple wrapper for CSV formatting
-func FormatOutputCSV(date string, out []core.Output) {
-	f, err := os.OpenFile("./gochopchop_"+date+".csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+// ExportCSV is a simple wrapper for CSV formatting
+func ExportCSV(date string, out []core.Output) error {
+	now := time.Now().Format("2006-01-02_15-04-05")
+	filename := fmt.Sprintf("./gochopchop_%s.csv", now)
+
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	defer f.Close()
 
 	_, err = f.WriteString("Domain,endpoint,severity,pluginName,remediation\n")
 	if err != nil {
-		log.Println(err)
+		return err
 	}
-	for i := 0; i < len(out); i++ {
-		_, err = f.Write([]byte(out[i].Domain + "," + out[i].TestedURL + "," + out[i].Severity + "," + out[i].PluginName + "," + out[i].Remediation + "\n"))
+	for output := range out {
+		_, err = f.Write([]byte(output.Domain + "," + output.TestedURL + "," + output.Severity + "," + output.PluginName + "," + output.Remediation + "\n"))
 		if err != nil {
-			log.Println(err)
+			return err
 		}
 	}
 
-	fmt.Println("Output as csv :" + "./gochopchop_" + date + ".csv")
-	f.Close()
+	fmt.Printf("Output as csv : %s \n", filename)
+	return nil
 }

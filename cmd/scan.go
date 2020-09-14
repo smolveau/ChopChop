@@ -6,6 +6,7 @@ import (
 	"gochopchop/core"
 	"gochopchop/userside/formatting"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -16,17 +17,14 @@ import (
 func init() {
 	scanCmd := &cobra.Command{
 		Use:   "scan",
-		Short: "scan URL endpoints to check if services/files/folders are exposed to the Internet",
-		Args:  checkArgsAndFlags,
+		Short: "scan endpoints to check if services/files/folders are exposed",
 		RunE:  runScan,
 	}
 	addSignaturesFlag(scanCmd)
 
-	scanCmd.Flags().StringP("url", "u", "", "url to scan")                                           // --url OU -u
-	scanCmd.Flags().BoolP("insecure", "i", false, "Check SSL certificate")                           // --insecure ou -n
-	scanCmd.Flags().StringP("url-file", "f", "", "path to a specified file containing urls to test") // --uri-file ou -f
-	scanCmd.Flags().StringP("prefix", "p", "", "Add prefix to urls when flag url-file is specified") // --prefix ou -p
-	// TODO changer le nom en max-severity
+	scanCmd.Flags().StringP("url", "u", "", "url to scan")                                                               // --url OU -u
+	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                               // --insecure ou -n
+	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                   // --uri-file ou -f
 	scanCmd.Flags().StringP("max-severity", "b", "", "maxSeverity pipeline if severity is over or equal specified flag") // --max-severity ou -m
 	// soit csv soit json via une liste genre --format json ou --format csv
 	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file") //--csv
@@ -43,23 +41,24 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	// call core with struct
 	begin := time.Now()
-	// Scan doit return une struct populer output
 	result, err := core.Scan(signatures, config)
-	elapsed := time.Since(begin)
-	log.Printf("Scan execution time: %s", elapsed)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Scan execution time: %s", time.Since(begin))
 
 	if len(result) > 0 {
-		dateNow := time.Now().Format("2006-01-02_15-04-05")
+		
+		// TODO renommer la fonction, genre PrintTable
 		formatting.FormatOutputTable(result)
 
 		if config.Json {
-			outputJSON := formatting.AddVulnToOutputJSON(result)
-			formatting.CreateFileJSON(dateNow, outputJSON)
+			formatting.ExportJSON(result)
 		}
 		if config.Csv {
-			formatting.FormatOutputCSV(dateNow, result)
+			formatting.ExportCSV(result)
 		}
 
 		if config.MaxSeverity != "" {
@@ -85,91 +84,72 @@ func runScan(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func checkArgsAndFlags(cmd *cobra.Command, args []string) error {
+func parseConfig(cmd *cobra.Command) (*core.Config, error) {
+	insecure, err := cmd.Flags().GetBool("insecure")
+	if err != nil {
+		return fmt.Errorf("invalid value for insecure: %v", err)
+	}
+
+	csv, err = cmd.Flags().GetBool("csv")
+	if err != nil {
+		return fmt.Errorf("invalid value for csv: %v", err)
+	}
+
+	json, err = cmd.Flags().GetBool("json")
+	if err != nil {
+		return fmt.Errorf("invalid value for json: %v", err)
+	}
+
+	var urls []string
+	// TODO si URL seule alors la passer comme argument et non comme flag
+	// TODO check si URL seule ou si liste d'URL - fail si les 2 sont present ? a discuter
 	url, err := cmd.Flags().GetString("url")
 	if err != nil {
 		return fmt.Errorf("invalid value for url: %v", err)
 	}
-	if url != "" {
-		if !strings.HasPrefix(url, "http") {
-			// If http or https not specified, return fatal log
-			return fmt.Errorf("URL needs a specified prefix :  http:// or https://")
-		}
+	if url != "" && IsUrl(url) {
+			urls = append(urls, url)
+	} else {
+		return nil, fmt.Errorf("URL is not valid")
 	}
-	urlFile, err := cmd.Flags().GetString("url-file")
-	if err != nil {
-		return fmt.Errorf("invalid value for urlFile: %v", err)
-	}
-	if urlFile != "" {
-		if _, err := os.Stat(urlFile); os.IsNotExist(err) {
-			return fmt.Errorf("filepath of url file is not valid")
-		}
-	}
-	protocol, err := cmd.Flags().GetString("protocol")
-	if err != nil {
-		return fmt.Errorf("invalid value for prefix: %v", err)
-	}
-	if protocol != "" {
-		if urlFile == "" {
-			return fmt.Errorf("protocol flag can't be assigned if flag url-file is not specified")
-		}
-	}
-	maxSeverity, err := cmd.Flags().GetString("maxSeverity")
-	if err != nil {
-		return fmt.Errorf("invalid value for maxSeverity: %v", err)
-	}
-	if maxSeverity != "" {
-		if maxSeverity == "High" || maxSeverity == "Medium" || maxSeverity == "Low" || maxSeverity == "Informational" {
-			fmt.Println("maxSeverity pipeline if severity is over or equal : " + maxSeverity)
-		} else {
-			log.Fatal(" ------ Unknown severity type : " + maxSeverity + " . Only Informational / Low / Medium / High are valid severity types.")
-		}
-	}
-	if _, err = cmd.Flags().GetBool("insecure"); err != nil {
-		return fmt.Errorf("invalid value for insecure: %v", err)
-	}
-	if _, err = cmd.Flags().GetBool("csv"); err != nil {
-		return fmt.Errorf("invalid value for csv: %v", err)
-	}
-	if _, err = cmd.Flags().GetBool("json"); err != nil {
-		return fmt.Errorf("invalid value for json: %v", err)
-	}
-	return nil
-}
 
-func parseConfig(cmd *cobra.Command) (*core.Config, error) {
-	// TODO soit url soit une liste d'URL
-	url, _ := cmd.Flags().GetString("url")
-	insecure, _ := cmd.Flags().GetBool("insecure")
-	urlFile, _ := cmd.Flags().GetString("url-file")
-	protocol, _ := cmd.Flags().GetString("protocol")
-	maxSeverity, _ := cmd.Flags().GetString("max-severity")
-	csv, _ := cmd.Flags().GetBool("csv")
-	json, _ := cmd.Flags().GetBool("json")
-
-	var urls []string
-	if url != "" {
-		urls = append(urls, url)
+	
+	inputFile, err := cmd.Flags().GetString("input-file")
+	if err != nil {
+		return fmt.Errorf("invalid value for input-file: %v", err)
 	}
-	if urlFile != "" {
-		urlFileContent, err := os.Open(urlFile)
+	if inputFile != "" {
+		content, err := os.Open(inputFile)
 		if err != nil {
 			return nil, err
 		}
-		defer urlFileContent.Close()
-		scanner := bufio.NewScanner(urlFileContent)
-		for scanner.Scan() {
-			urls = append(urls, scanner.Text())
+		defer content.Close()
+		scanner := bufio.NewScanner(content)
+		for url := scanner.Scan() {
+			if IsUrl(url) {
+				urls = append(urls, url)
+			} else {
+				fmt.Printf("[WARN] url: %s - is not valid - skipping scan \n", url)
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			return nil, err
 		}
 	}
 
-	// Load config flags in config struct
+	maxSeverity, err := cmd.Flags().GetString("maxSeverity")
+	if err != nil {
+		return fmt.Errorf("invalid value for maxSeverity: %v", err)
+	}
+	if maxSeverity != "" {
+		if maxSeverity != "High" || maxSeverity != "Medium" || maxSeverity != "Low" || maxSeverity != "Informational" {
+			// TODO rework pour ne pas repeter les types de severity
+			return nil, fmt.Errorf(" ------ Unknown severity type : %s . Only Informational / Low / Medium / High are valid severity types.", maxSeverity)
+		}
+	}
+
 	config := &core.Config{
 		Insecure:    insecure,
-		Protocol:    protocol,
 		maxSeverity: maxSeverity,
 		Csv:         csv,
 		Json:        json,
@@ -177,6 +157,11 @@ func parseConfig(cmd *cobra.Command) (*core.Config, error) {
 	}
 
 	return config, nil
+}
+
+func IsUrl(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
 // BlockCI function will allow the user to return a different status code depending on the highest severity that has triggered

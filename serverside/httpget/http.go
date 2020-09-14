@@ -10,7 +10,7 @@ import (
 )
 
 type IHTTPClient interface {
-	Fetch(url string, followredirect bool) (*internal.HTTPResponse, error)
+	Get(url string) (*http.Response, error)
 }
 
 type HTTPClient struct {
@@ -20,10 +20,6 @@ type HTTPClient struct {
 
 type Fetcher struct {
 	Netclient IHTTPClient
-}
-
-func (s HTTPClient) Fetch(url string, followRedirects bool) (*internal.HTTPResponse, error) {
-
 }
 
 func NewFetcher(insecure bool) *Fetcher {
@@ -40,9 +36,27 @@ func NewFetcher(insecure bool) *Fetcher {
 	}
 }
 
-func (s Fetcher) Fetch(url string, followRedirects bool) (*internal.HTTPResponse, error) {
+func NewNoRedirectFetcher(insecure bool) *Fetcher {
+	tr := &http.Transport{}
+	if insecure {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	var netClient = &http.Client{
+		Transport: tr,
+		Timeout:   time.Second * 3,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	return &Fetcher{
+		Netclient: netClient,
+	}
+}
+
+// TODO Add follow redirects
+func (s Fetcher) Fetch(url string) (*internal.HTTPResponse, error) {
 	// implements the core/IFetcher interface
-	resp, err := s.Netclient.Fetch(url, false)
+	resp, err := s.Netclient.Get(url)
 	if err != nil {
 		return nil, err
 	}

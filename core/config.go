@@ -50,7 +50,6 @@ type Plugin struct {
 // Struct for config flags
 type Config struct {
 	Insecure    bool
-	Protocol    string
 	MaxSeverity string
 	Csv         bool // renommer pour que cela soit plus representatif
 	Json        bool

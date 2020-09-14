@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"gochopchop/internal"
+	"gochopchop/serverside/httpget"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -28,43 +29,52 @@ type IScanner interface {
 }
 
 type Scanner struct {
-	Fetcher IFetcher
+	Fetcher           IFetcher
+	NoRedirectFetcher IFetcher
+	safeData          *SafeData
+}
+
+func NewScanner(insecure bool) *Scanner {
+	fetcher := httpget.NewFetcher(insecure)
+	noRedirectFetcher := httpget.NewNoRedirectFetcher(insecure)
+	safeData := new(SafeData)
+	return &Scanner{
+		Fetcher:           fetcher,
+		NoRedirectFetcher: noRedirectFetcher,
+		safeData:          safeData,
+	}
 }
 
 // Scan of domain via url
 func (s Scanner) Scan(signatures *Signatures, config *Config) ([]Output, error) {
 	wg := new(sync.WaitGroup)
-	safeData := new(SafeData)
 
-	for _, domain := range config.Urls {
-		url := fmt.Sprintf("%s://%s", config.Protocol, domain)
-		fmt.Println("Testing domain : ", url)
+	// TODO Changer nom DOMAIN
+	for _, url := range config.Urls {
+		fmt.Println("Testing url : ", url)
 		for _, plugin := range signatures.Plugins {
 			fullURL := fmt.Sprintf("%s%s", url, plugin.URI)
 			if plugin.QueryString != "" {
 				fullURL += "?" + plugin.QueryString
 			}
 			wg.Add(1)
-			go s.scanURL(config.Insecure, domain, fullURL, plugin, safeData, wg)
+			go s.scanURL(url, fullURL, plugin, wg)
 		}
 	}
 	wg.Wait()
 
-	return safeData.out, nil
+	return s.safeData.out, nil
 }
 
-// func scanURL(config, options, fetcher, safedata, wg)
-func (s Scanner) scanURL(insecure bool, domain string, url string, plugin Plugin, safeData *SafeData, wg *sync.WaitGroup) {
+func (s Scanner) scanURL(domain string, url string, plugin Plugin, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	// By default we follow HTTP redirects
-	followRedirects := true
-	// But for each plugin we can override and don't follow HTTP redirects
 	if plugin.FollowRedirects != nil && *plugin.FollowRedirects == false {
-		followRedirects = false
+		httpResponse, err := s.NoRedirectFetcher.Fetch(url)
+	} else {
+		httpResponse, err := s.Fetcher.Fetch(url)
 	}
 
-	httpResponse, err := s.Fetcher.Fetch(url, followRedirects)
 	if err != nil {
 		_ = errors.Wrap(err, "Timeout of HTTP Request")
 	}
@@ -76,12 +86,12 @@ func (s Scanner) scanURL(insecure bool, domain string, url string, plugin Plugin
 	swg := new(sync.WaitGroup)
 	for _, check := range plugin.Checks {
 		swg.Add(1)
-		go scanHTTPResponse(httpResponse, url, domain, check, safeData, swg)
+		go s.analyseHTTPResponse(httpResponse, url, domain, check, swg)
 	}
 	swg.Wait()
 }
 
-func scanHTTPResponse(httpResponse *HTTPResponse, url string, domain string, check Check, safeData *SafeData, swg *sync.WaitGroup) {
+func (s Scanner) analyseHTTPResponse(httpResponse *HTTPResponse, url string, domain string, check Check, swg *sync.WaitGroup) {
 	defer swg.Done()
 	match := ResponseAnalysis(httpResponse, check)
 	if match {
@@ -92,6 +102,6 @@ func scanHTTPResponse(httpResponse *HTTPResponse, url string, domain string, che
 			Severity:    string(*check.Severity),
 			Remediation: *check.Remediation,
 		}
-		safeData.Add(o)
+		s.safeData.Add(o)
 	}
 }

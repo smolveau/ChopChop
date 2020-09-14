@@ -6,75 +6,77 @@ import (
 	"gochopchop/core"
 	"log"
 	"os"
+	"time"
 )
 
-// OutputJSON struct
-type OutputJSON struct {
-	TestedDomains []TestedDomains `json:"domains"`
+// TODO REFACTOR NAMES OF JSON ( endpoints ? PAth ? url ? )
+type outputJSON struct {
+	domains []domains `json:"domains"`
 }
 
-// TestedDomains struct
-type TestedDomains struct {
-	TestedDomain string       `json:"domain"`
-	TestedUrls   []TestedURLs `json:"urls"`
+type domains struct {
+	domain string `json:"domain"`
+	urls   []urls `json:"urls"`
 }
 
-// TestedURLs struct
-type TestedURLs struct {
-	TestedURL   string `json:"url,omitempty"`
-	PluginName  string `json:"plugin_name,omitempty"`
-	Severity    string `json:"severity,omitempty"`
-	Remediation string `json:"remediation,omitempty"`
+type urls struct {
+	url         string `json:"url,omitempty"`
+	pluginName  string `json:"plugin_name,omitempty"`
+	severity    string `json:"severity,omitempty"`
+	remediation string `json:"remediation,omitempty"`
 }
 
-// AddVulnToOutputJSON will add the vuln to struct output
-func AddVulnToOutputJSON(out []core.Output) OutputJSON {
-	jsonOut := OutputJSON{}
+// ExportJSON will save the output to a JSON file
+func ExportJSON(out []core.Output) error {
+	// FIXME refactor me
 
-	for i := 0; i < len(out); i++ {
+	jsonOut := outputJSON{}
+
+	// TODO use range not compteur
+	for output := range out {
 		added := false
 		// Check if domain already exist - if yes append infos
-		for y := 0; y < len(jsonOut.TestedDomains); y++ {
-			if jsonOut.TestedDomains[y].TestedDomain == out[i].Domain {
-				jsonOut.TestedDomains[y].TestedUrls = append(jsonOut.TestedDomains[y].TestedUrls, TestedURLs{
-					TestedURL:   out[i].TestedURL,
-					PluginName:  out[i].PluginName,
-					Severity:    out[i].Severity,
-					Remediation: out[i].Remediation,
+		for d := range jsonOut.domains {
+			if d.domain == output.Domain {
+				d.urls = append(d.urls, urls{
+					url:         output.url,
+					pluginName:  output.pluginName,
+					severity:    output.severity,
+					remediation: output.remediation,
 				})
 				added = true
 			}
 		}
 		if !added {
 			// If domain not found, create it
-			jsonOut.TestedDomains = append(jsonOut.TestedDomains, TestedDomains{
-				TestedDomain: out[i].Domain,
-				TestedUrls:   nil,
+			jsonOut.domains = append(jsonOut.domains, domains{
+				domain: output.Domain,
+				urls:   nil,
 			})
-			jsonOut.TestedDomains[len(jsonOut.TestedDomains)-1].TestedUrls = append(jsonOut.TestedDomains[len(jsonOut.TestedDomains)-1].TestedUrls, TestedURLs{
-				TestedURL:   out[i].TestedURL,
-				PluginName:  out[i].PluginName,
-				Severity:    out[i].Severity,
-				Remediation: out[i].Remediation,
+			jsonOut.domains[len(jsonOut.domains)-1].urls = append(jsonOut.domains[len(jsonOut.domains)-1].urls, urls{
+				url:         output.url,
+				pluginName:  output.pluginName,
+				severity:    output.severity,
+				remediation: output.remediation,
 			})
 		}
 	}
-	return jsonOut
-}
 
-// CreateFileJSON will save the output to a JSON file
-func CreateFileJSON(date string, out OutputJSON) {
-	f, err := os.OpenFile("./gochopchop_"+date+".json", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	now := time.Now().Format("2006-01-02_15-04-05")
+	filename := fmt.Sprintf("./gochopchop_%s.json", now)
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	file, _ := json.MarshalIndent(&out, "", " ")
+	file, _ := json.MarshalIndent(jsonOut, "", " ")
 
 	_, err = f.Write([]byte(file))
 	if err != nil {
-		log.Fatal(err)
+		// TODO pas de fatal
+		return fmt.Errorf(err)
 	}
-	fmt.Println("Output as json :" + "./gochopchop_" + date + ".json")
+	fmt.Printf("Output as json : %s", filename)
 	f.Close()
+	return nil
 }
