@@ -7,19 +7,19 @@ import (
 	"github.com/jedib0t/go-pretty/table"
 )
 
-// FormatOutputTable will render the data as a nice table
-func FormatOutputTable(out []core.Output) {
+// PrintTable will render the data as a nice table
+func PrintTable(out []core.Output) {
 
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Domain", "URL", "Severity", "Plugin", "Remediation"})
-	for i := 0; i < len(out); i++ {
+	t.AppendHeader(table.Row{"URL", "Endpoint", "Severity", "Plugin", "Remediation"})
+	for _, output := range out {
 		t.AppendRow([]interface{}{
-			out[i].Domain,
-			out[i].TestedURL,
-			out[i].Severity,
-			out[i].PluginName,
-			out[i].Remediation,
+			output.URL,
+			output.Endpoint,
+			output.Severity,
+			output.PluginName,
+			output.Remediation,
 		})
 	}
 	t.Render()

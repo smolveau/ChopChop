@@ -8,7 +8,7 @@ import (
 )
 
 // ExportCSV is a simple wrapper for CSV formatting
-func ExportCSV(date string, out []core.Output) error {
+func ExportCSV(out []core.Output) error {
 	now := time.Now().Format("2006-01-02_15-04-05")
 	filename := fmt.Sprintf("./gochopchop_%s.csv", now)
 
@@ -18,12 +18,13 @@ func ExportCSV(date string, out []core.Output) error {
 	}
 	defer f.Close()
 
-	_, err = f.WriteString("Domain,endpoint,severity,pluginName,remediation\n")
+	_, err = f.WriteString("url,endpoint,severity,pluginName,remediation\n")
 	if err != nil {
 		return err
 	}
-	for output := range out {
-		_, err = f.Write([]byte(output.Domain + "," + output.TestedURL + "," + output.Severity + "," + output.PluginName + "," + output.Remediation + "\n"))
+	for _, output := range out {
+		line := fmt.Sprintf("%s,%s,%s,%s,%s\n", output.URL, output.Endpoint, output.Severity, output.PluginName, output.Remediation)
+		_, err = f.Write([]byte(line))
 		if err != nil {
 			return err
 		}

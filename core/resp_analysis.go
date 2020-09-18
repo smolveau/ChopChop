@@ -1,32 +1,32 @@
 package core
 
 import (
-	"gochopchop/serverside/httpget"
+	"gochopchop/internal"
 	"strings"
 )
 
 //ResponseAnalysis of HTTP Request with checks
-func ResponseAnalysis(resp *httpget.HTTPResponse, signature Check) bool {
+func ResponseAnalysis(resp *internal.HTTPResponse, signature Check) bool {
 	// TODO a refactor
 	if signature.StatusCode != nil {
 		if int32(resp.StatusCode) != *signature.StatusCode {
 			return false
 		}
 	}
-	// all element needs to be found
+	// all element must be found
 	if signature.AllMatch != nil {
-		for i := 0; i < len(signature.AllMatch); i++ {
-			if !strings.Contains(resp.Body, *signature.AllMatch[i]) {
+		for _, match := range signature.AllMatch {
+			if !strings.Contains(resp.Body, *match) {
 				return false
 			}
 		}
 	}
 
-	// one elements needs to be found
+	// one element must be found
 	if signature.Match != nil {
 		found := false
-		for i := 0; i < len(signature.Match); i++ {
-			if strings.Contains(resp.Body, *signature.Match[i]) {
+		for _, match := range signature.Match {
+			if strings.Contains(resp.Body, *match) {
 				found = true
 			}
 		}
@@ -35,24 +35,22 @@ func ResponseAnalysis(resp *httpget.HTTPResponse, signature Check) bool {
 		}
 	}
 
-	// if 1 element of list is not found
+	// no element should match
 	if signature.NoMatch != nil {
-		for i := 0; i < len(signature.NoMatch); i++ {
-			if strings.Contains(resp.Body, *signature.NoMatch[i]) {
+		for _, match := range signature.NoMatch {
+			if strings.Contains(resp.Body, *match) {
 				return false
 			}
 		}
 	}
 	if signature.Headers != nil {
-		for i := 0; i < len(signature.Headers); i++ {
+		for _, header := range signature.Headers {
 			// Parse headers
-			pHeaders := strings.Split(*signature.Headers[i], ":")
+			pHeaders := strings.Split(*header, ":")
 			if v, kFound := resp.Header[pHeaders[0]]; kFound {
-				// Key found - check value
 				vFound := false
-				for i, n := range v {
+				for _, n := range v {
 					if pHeaders[1] == n {
-						_ = i
 						vFound = true
 					}
 				}

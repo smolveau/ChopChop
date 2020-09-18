@@ -15,14 +15,12 @@ var signatureFlagShorthand = "c"
 var signatureDefaultFilename = "chopchop.yml"
 
 func addSignaturesFlag(cmd *cobra.Command) error {
-	cmd.Flags().StringP(signatureFlagName, signatureFlagShorthand, "", "path to signature file") // --signature ou -c
+	cmd.Flags().StringP(signatureFlagName, signatureFlagShorthand, signatureDefaultFilename, "path to signature file") // --signature ou -c
 	return nil
 }
 
 func parseSignatures(cmd *cobra.Command) (*core.Signatures, error) {
-	// 1. specified path qui vient de la cmd
-	// verifier si le flag a été activé
-	// et ensuite verifier si ce flag est vide
+
 	signatureFile, err := cmd.Flags().GetString(signatureFlagName)
 	if err != nil {
 		return nil, fmt.Errorf("invalid value for signatureFile: %v", err)
@@ -30,8 +28,6 @@ func parseSignatures(cmd *cobra.Command) (*core.Signatures, error) {
 	if _, err := os.Stat(signatureFile); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Path of signatures file is not valid")
 	}
-
-	// 4. next to binary
 
 	file, err := os.Open(signatureFile)
 	if err != nil {
@@ -54,7 +50,6 @@ func parseSignatures(cmd *cobra.Command) (*core.Signatures, error) {
 	for _, plugin := range signatures.Plugins {
 		for _, check := range plugin.Checks {
 			if check.Description == nil {
-				// TODO remonter l'erreur plutot que fatal
 				return nil, fmt.Errorf("Missing description field in %s plugin checks. Stopping execution.", check.PluginName)
 			}
 			if check.Remediation == nil {
@@ -63,9 +58,8 @@ func parseSignatures(cmd *cobra.Command) (*core.Signatures, error) {
 			if check.Severity == nil {
 				return nil, fmt.Errorf("Missing severity field in %s plugin checks. Stopping execution.", check.PluginName)
 			}
-			if err := core.SeverityType.IsValid(*check.Severity); err != nil {
-				// TODO error not used
-				return nil, fmt.Errorf(" ------ Unknown severity type : %s . Only Informational / Low / Medium / High are valid severity types.", string(*check.Severity))
+			if !core.ValidSeverity(*check.Severity) {
+				return nil, fmt.Errorf("Invalid severity : %s. Please use : %s", *check.Severity, core.SeveritiesAsString())
 			}
 		}
 	}

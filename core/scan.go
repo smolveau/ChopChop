@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 	"gochopchop/internal"
-	"gochopchop/serverside/httpget"
+	"path"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -21,11 +21,11 @@ func (s *SafeData) Add(d Output) {
 }
 
 type IFetcher interface {
-	Fetch(url string, followRedirects bool) (*internal.HTTPResponse, error)
+	Fetch(url string) (*internal.HTTPResponse, error)
 }
 
 type IScanner interface {
-	Scan(signatures *Signatures, config *Config) ([]Output, error)
+	Scan(signatures *Signatures, urls []string) ([]Output, error)
 }
 
 type Scanner struct {
@@ -34,9 +34,7 @@ type Scanner struct {
 	safeData          *SafeData
 }
 
-func NewScanner(insecure bool) *Scanner {
-	fetcher := httpget.NewFetcher(insecure)
-	noRedirectFetcher := httpget.NewNoRedirectFetcher(insecure)
+func NewScanner(fetcher IFetcher, noRedirectFetcher IFetcher) *Scanner {
 	safeData := new(SafeData)
 	return &Scanner{
 		Fetcher:           fetcher,
@@ -45,20 +43,45 @@ func NewScanner(insecure bool) *Scanner {
 	}
 }
 
-// Scan of domain via url
-func (s Scanner) Scan(signatures *Signatures, config *Config) ([]Output, error) {
+// TODO move parameters in struct, refactor
+func (s Scanner) Scan(signatures *Signatures, urls []string) ([]Output, error) {
 	wg := new(sync.WaitGroup)
 
-	// TODO Changer nom DOMAIN
-	for _, url := range config.Urls {
+	for _, url := range urls {
 		fmt.Println("Testing url : ", url)
 		for _, plugin := range signatures.Plugins {
-			fullURL := fmt.Sprintf("%s%s", url, plugin.URI)
+			endpoint := plugin.URI
 			if plugin.QueryString != "" {
-				fullURL += "?" + plugin.QueryString
+				endpoint = fmt.Sprintf("%s?%s", endpoint, plugin.QueryString)
 			}
+			fullURL := path.Join(url, endpoint)
+
 			wg.Add(1)
-			go s.scanURL(url, fullURL, plugin, wg)
+			go func() {
+				defer wg.Done()
+				resp, err := s.scanURL(fullURL, plugin)
+				if err != nil {
+					return
+				}
+				swg := new(sync.WaitGroup)
+				for _, check := range plugin.Checks {
+					swg.Add(1)
+					go func() {
+						defer swg.Done()
+						if ResponseAnalysis(resp, check) {
+							o := Output{
+								URL:         fullURL,
+								PluginName:  check.PluginName,
+								Endpoint:    endpoint,
+								Severity:    *check.Severity,
+								Remediation: *check.Remediation,
+							}
+							s.safeData.Add(o)
+						}
+					}()
+				}
+				swg.Wait()
+			}()
 		}
 	}
 	wg.Wait()
@@ -66,42 +89,22 @@ func (s Scanner) Scan(signatures *Signatures, config *Config) ([]Output, error) 
 	return s.safeData.out, nil
 }
 
-func (s Scanner) scanURL(domain string, url string, plugin Plugin, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (s Scanner) scanURL(url string, plugin Plugin) (*internal.HTTPResponse, error) {
+	var httpResponse *internal.HTTPResponse
+	var err error
 
 	if plugin.FollowRedirects != nil && *plugin.FollowRedirects == false {
-		httpResponse, err := s.NoRedirectFetcher.Fetch(url)
+		httpResponse, err = s.NoRedirectFetcher.Fetch(url)
 	} else {
-		httpResponse, err := s.Fetcher.Fetch(url)
+		httpResponse, err = s.Fetcher.Fetch(url)
 	}
 
 	if err != nil {
-		_ = errors.Wrap(err, "Timeout of HTTP Request")
+		return nil, errors.Wrap(err, "Timeout of HTTP Request")
 	}
+	// weird case when both the error and the response are nil, caused by the server refusing the connection
 	if httpResponse == nil {
-		fmt.Println("Server refused the connection for URL : " + url)
-		return
+		return nil, fmt.Errorf("Server refused the connection for : %s", url)
 	}
-
-	swg := new(sync.WaitGroup)
-	for _, check := range plugin.Checks {
-		swg.Add(1)
-		go s.analyseHTTPResponse(httpResponse, url, domain, check, swg)
-	}
-	swg.Wait()
-}
-
-func (s Scanner) analyseHTTPResponse(httpResponse *HTTPResponse, url string, domain string, check Check, swg *sync.WaitGroup) {
-	defer swg.Done()
-	match := ResponseAnalysis(httpResponse, check)
-	if match {
-		o := Output{
-			Domain:      domain,
-			PluginName:  check.PluginName,
-			TestedURL:   url,
-			Severity:    string(*check.Severity),
-			Remediation: *check.Remediation,
-		}
-		s.safeData.Add(o)
-	}
+	return httpResponse, nil
 }

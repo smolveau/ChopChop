@@ -1,0 +1,28 @@
+- Flag --format pour csv et JSON
+
+- Rajoutez un logger (-v) et un flag global verbose (multi level ?)
+ou alors comme curl/wget de base etre verbeux et avoir un flag silence/quiet ?
+
+- si control+c pour arreter l'outil, stopper les goroutines
+
+- mock and unit tests
+
+- Refactor scan
+
+- Argument et truc a faire pour pour git flow 
+    Bloquer master
+    Code review
+
+- Github CI
+
+brainstorm
+----------
+
+pour chaque URL :
+    pour chaque plugin :
+        creer url finale
+        scanner url avec option de redirection
+        pour chaque check du plugin :
+            analyser resultat
+            stocker resultat
+

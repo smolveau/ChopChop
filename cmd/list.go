@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"gochopchop/core"
 	"os"
 
 	"github.com/jedib0t/go-pretty/table"
@@ -57,12 +58,9 @@ func parseOptions(cmd *cobra.Command) (*ListOptions, error) {
 		return nil, fmt.Errorf("invalid value for severity: %v", err)
 	}
 	if severity != "" {
-		if severity == "High" || severity == "Medium" || severity == "Low" || severity == "Informational" {
-			options.Severity = severity
-		} else {
-			return nil, fmt.Errorf(" ------ Unknown severity type : %s . Only Informational / Low / Medium / High are valid severity types.", severity)
+		if !core.ValidSeverity(severity) {
+			return nil, fmt.Errorf("Invalid severity level : %s. Please use : %s", severity, core.SeveritiesAsString())
 		}
 	}
-
 	return options, nil
 }

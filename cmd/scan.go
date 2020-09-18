@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"gochopchop/core"
+	"gochopchop/serverside/httpget"
 	"gochopchop/userside/formatting"
 	"log"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -26,23 +26,31 @@ func init() {
 	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                               // --insecure ou -n
 	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                   // --uri-file ou -f
 	scanCmd.Flags().StringP("max-severity", "b", "", "maxSeverity pipeline if severity is over or equal specified flag") // --max-severity ou -m
-	// soit csv soit json via une liste genre --format json ou --format csv
+	// ENHANCEMENT csv or Json as a format flag
 	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file") //--csv
 	scanCmd.Flags().BoolP("json", "", false, "output as a json file")
+	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)") // --timeout ou -ts
 	rootCmd.AddCommand(scanCmd)
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
+	config, err := parseConfig(cmd, args)
+	if err != nil {
+		return err
+	}
 	signatures, err := parseSignatures(cmd)
 	if err != nil {
 		return err
 	}
-	config, err := parseConfig(cmd)
-	if err != nil {
-		return err
-	}
 	begin := time.Now()
-	result, err := core.Scan(signatures, config)
+
+	// serverside
+	fetcher := httpget.NewFetcher(config.Insecure, config.Timeout)
+	noRedirectFetcher := httpget.NewNoRedirectFetcher(config.Insecure, config.Timeout)
+	// core
+	scanner := core.NewScanner(fetcher, noRedirectFetcher)
+
+	result, err := scanner.Scan(signatures, config.Urls)
 	if err != nil {
 		return err
 	}
@@ -50,74 +58,45 @@ func runScan(cmd *cobra.Command, args []string) error {
 	log.Printf("Scan execution time: %s", time.Since(begin))
 
 	if len(result) > 0 {
-		
-		// TODO renommer la fonction, genre PrintTable
-		formatting.FormatOutputTable(result)
 
-		if config.Json {
+		formatting.PrintTable(result)
+		if config.ExportJSON {
 			formatting.ExportJSON(result)
 		}
-		if config.Csv {
+		if config.ExportCSV {
 			formatting.ExportCSV(result)
 		}
 
 		if config.MaxSeverity != "" {
-			blocking := false
 			for _, output := range result {
-				for _, severity := range output.Severity {
-					if BlockCI(config.MaxSeverity, severity) {
-						block = true
-					}
+				if core.SeverityReached(config.MaxSeverity, output.Severity) {
+					return fmt.Errorf("Max severity level reached, exiting with error code")
 				}
 			}
 		}
-
-		if !blocking {
-			fmt.Println("No critical vulnerabilities found...")
-			return nil
-		}
-		return fmt.Errorf("Blocking CI")
 	} else {
 		fmt.Println("No vulnerabilities found. Exiting...")
-		return nil
 	}
 	return nil
 }
 
-func parseConfig(cmd *cobra.Command) (*core.Config, error) {
-	insecure, err := cmd.Flags().GetBool("insecure")
+func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
+
+	inputFile, err := cmd.Flags().GetString("input-file")
 	if err != nil {
-		return fmt.Errorf("invalid value for insecure: %v", err)
+		return nil, fmt.Errorf("invalid value for input-file: %v", err)
 	}
 
-	csv, err = cmd.Flags().GetBool("csv")
-	if err != nil {
-		return fmt.Errorf("invalid value for csv: %v", err)
+	if inputFile != "" && len(args) >= 1 {
+		// both input-file and url are set, abort
+		return nil, fmt.Errorf("Can't specify url with url list flag")
 	}
-
-	json, err = cmd.Flags().GetBool("json")
-	if err != nil {
-		return fmt.Errorf("invalid value for json: %v", err)
+	if inputFile == "" && len(args) == 0 {
+		// no input-file and no argument, abort
+		return nil, fmt.Errorf("No url provided, please set the input-file flag or provide an url as an argument")
 	}
 
 	var urls []string
-	// TODO si URL seule alors la passer comme argument et non comme flag
-	// TODO check si URL seule ou si liste d'URL - fail si les 2 sont present ? a discuter
-	url, err := cmd.Flags().GetString("url")
-	if err != nil {
-		return fmt.Errorf("invalid value for url: %v", err)
-	}
-	if url != "" && IsUrl(url) {
-			urls = append(urls, url)
-	} else {
-		return nil, fmt.Errorf("URL is not valid")
-	}
-
-	
-	inputFile, err := cmd.Flags().GetString("input-file")
-	if err != nil {
-		return fmt.Errorf("invalid value for input-file: %v", err)
-	}
 	if inputFile != "" {
 		content, err := os.Open(inputFile)
 		if err != nil {
@@ -125,64 +104,76 @@ func parseConfig(cmd *cobra.Command) (*core.Config, error) {
 		}
 		defer content.Close()
 		scanner := bufio.NewScanner(content)
-		for url := scanner.Scan() {
-			if IsUrl(url) {
-				urls = append(urls, url)
-			} else {
+		for scanner.Scan() {
+			url := scanner.Text()
+			if !isURL(url) {
 				fmt.Printf("[WARN] url: %s - is not valid - skipping scan \n", url)
+				continue
 			}
+			urls = append(urls, url)
 		}
 		if err := scanner.Err(); err != nil {
 			return nil, err
 		}
 	}
 
-	maxSeverity, err := cmd.Flags().GetString("maxSeverity")
-	if err != nil {
-		return fmt.Errorf("invalid value for maxSeverity: %v", err)
+	if len(args) > 1 {
+		return nil, fmt.Errorf("Please provide only one URL")
 	}
-	if maxSeverity != "" {
-		if maxSeverity != "High" || maxSeverity != "Medium" || maxSeverity != "Low" || maxSeverity != "Informational" {
-			// TODO rework pour ne pas repeter les types de severity
-			return nil, fmt.Errorf(" ------ Unknown severity type : %s . Only Informational / Low / Medium / High are valid severity types.", maxSeverity)
+
+	if len(args) == 1 {
+		url := args[0]
+		if isURL(url) {
+			urls = append(urls, url)
+		} else {
+			return nil, fmt.Errorf("Please provide a valid URL")
 		}
+	}
+
+	insecure, err := cmd.Flags().GetBool("insecure")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for insecure: %v", err)
+	}
+
+	exportCSV, err := cmd.Flags().GetBool("csv")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for csv: %v", err)
+	}
+
+	exportJSON, err := cmd.Flags().GetBool("json")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for json: %v", err)
+	}
+
+	maxSeverity, err := cmd.Flags().GetString("max-severity")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for maxSeverity: %v", err)
+	}
+
+	if maxSeverity != "" {
+		if core.ValidSeverity(maxSeverity) {
+			return nil, fmt.Errorf("Invalid severity level : %s. Please use : %s", maxSeverity, core.SeveritiesAsString())
+		}
+	}
+
+	timeout, err := cmd.Flags().GetInt("timeout")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid value for timeout: %v", err)
 	}
 
 	config := &core.Config{
 		Insecure:    insecure,
-		maxSeverity: maxSeverity,
-		Csv:         csv,
-		Json:        json,
+		MaxSeverity: maxSeverity,
+		ExportCSV:   exportCSV,
+		ExportJSON:  exportJSON,
 		Urls:        urls,
+		Timeout:     timeout,
 	}
 
 	return config, nil
 }
 
-func IsUrl(str string) bool {
+func isURL(str string) bool {
 	u, err := url.Parse(str)
 	return err == nil && u.Scheme != "" && u.Host != ""
-}
-
-// BlockCI function will allow the user to return a different status code depending on the highest severity that has triggered
-func BlockCI(severity string, severityType SeverityType) bool {
-	switch severity {
-	case "High":
-		if severityType == High {
-			return true
-		}
-	case "Medium":
-		if severityType == High || severityType == Medium {
-			return true
-		}
-	case "Low":
-		if severityType == High || severityType == Medium || severityType == Low {
-			return true
-		}
-	case "Informational":
-		if severityType == High || severityType == Medium || severityType == Low || severityType == Informational {
-			return true
-		}
-	}
-	return false
 }

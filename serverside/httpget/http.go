@@ -22,28 +22,28 @@ type Fetcher struct {
 	Netclient IHTTPClient
 }
 
-func NewFetcher(insecure bool) *Fetcher {
+func NewFetcher(insecure bool, timeout int) *Fetcher {
 	tr := &http.Transport{}
 	if insecure {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	var netClient = &http.Client{
 		Transport: tr,
-		Timeout:   time.Second * 3,
+		Timeout:   time.Second * time.Duration(timeout),
 	}
 	return &Fetcher{
 		Netclient: netClient,
 	}
 }
 
-func NewNoRedirectFetcher(insecure bool) *Fetcher {
+func NewNoRedirectFetcher(insecure bool, timeout int) *Fetcher {
 	tr := &http.Transport{}
 	if insecure {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	var netClient = &http.Client{
 		Transport: tr,
-		Timeout:   time.Second * 3,
+		Timeout:   time.Second * time.Duration(timeout),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
