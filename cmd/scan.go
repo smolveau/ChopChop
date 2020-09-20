@@ -6,11 +6,11 @@ import (
 	"gochopchop/core"
 	"gochopchop/serverside/httpget"
 	"gochopchop/userside/formatting"
-	"log"
 	"net/url"
 	"os"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +27,8 @@ func init() {
 	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                   // --uri-file ou -f
 	scanCmd.Flags().StringP("max-severity", "b", "", "maxSeverity pipeline if severity is over or equal specified flag") // --max-severity ou -m
 	// ENHANCEMENT csv or Json as a format flag
-	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file") //--csv
-	scanCmd.Flags().BoolP("json", "", false, "output as a json file")
+	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file")                          //--csv
+	scanCmd.Flags().BoolP("json", "", false, "output as a json file")                        //--json
 	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)") // --timeout ou -ts
 	rootCmd.AddCommand(scanCmd)
 }
@@ -48,14 +48,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 	fetcher := httpget.NewFetcher(config.Insecure, config.Timeout)
 	noRedirectFetcher := httpget.NewNoRedirectFetcher(config.Insecure, config.Timeout)
 	// core
-	scanner := core.NewScanner(fetcher, noRedirectFetcher)
+	scanner := core.NewScanner(fetcher, noRedirectFetcher, signatures)
 
-	result, err := scanner.Scan(signatures, config.Urls)
+	result, err := scanner.Scan(config.Urls)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Scan execution time: %s", time.Since(begin))
+	log.Info("Scan execution time: %s", time.Since(begin))
 
 	if len(result) > 0 {
 
@@ -75,7 +75,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 			}
 		}
 	} else {
-		fmt.Println("No vulnerabilities found. Exiting...")
+		log.Info("No vulnerabilities found. Exiting...")
 	}
 	return nil
 }
@@ -107,7 +107,7 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 		for scanner.Scan() {
 			url := scanner.Text()
 			if !isURL(url) {
-				fmt.Printf("[WARN] url: %s - is not valid - skipping scan \n", url)
+				log.Warn("url: %s - is not valid - skipping scan \n", url)
 				continue
 			}
 			urls = append(urls, url)

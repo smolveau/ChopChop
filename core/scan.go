@@ -25,31 +25,32 @@ type IFetcher interface {
 }
 
 type IScanner interface {
-	Scan(signatures *Signatures, urls []string) ([]Output, error)
+	Scan(urls []string) ([]Output, error)
 }
 
 type Scanner struct {
+	Signatures *Signatures
 	Fetcher           IFetcher
 	NoRedirectFetcher IFetcher
 	safeData          *SafeData
 }
 
-func NewScanner(fetcher IFetcher, noRedirectFetcher IFetcher) *Scanner {
+func NewScanner(fetcher IFetcher, noRedirectFetcher IFetcher, signatures *Signatures) *Scanner {
 	safeData := new(SafeData)
 	return &Scanner{
+		Signatures: signatures,
 		Fetcher:           fetcher,
 		NoRedirectFetcher: noRedirectFetcher,
 		safeData:          safeData,
 	}
 }
 
-// TODO move parameters in struct, refactor
-func (s Scanner) Scan(signatures *Signatures, urls []string) ([]Output, error) {
+func (s Scanner) Scan(urls []string) ([]Output, error) {
 	wg := new(sync.WaitGroup)
 
 	for _, url := range urls {
 		fmt.Println("Testing url : ", url)
-		for _, plugin := range signatures.Plugins {
+		for _, plugin := range s.Signatures.Plugins {
 			endpoint := plugin.URI
 			if plugin.QueryString != "" {
 				endpoint = fmt.Sprintf("%s?%s", endpoint, plugin.QueryString)

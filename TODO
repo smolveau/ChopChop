@@ -2,8 +2,10 @@
 
 - Rajoutez un logger (-v) et un flag global verbose (multi level ?)
 ou alors comme curl/wget de base etre verbeux et avoir un flag silence/quiet ?
+https://www.honeybadger.io/blog/golang-logging/
 
 - si control+c pour arreter l'outil, stopper les goroutines
+    - Context (voir gobuster)
 
 - mock and unit tests
 
@@ -14,6 +16,7 @@ ou alors comme curl/wget de base etre verbeux et avoir un flag silence/quiet ?
     Code review
 
 - Github CI
+
 
 brainstorm
 ----------
