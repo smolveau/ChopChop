@@ -28,22 +28,23 @@ Link: https://github.com/michelin/ChopChop`,
 }
 
 //https://le-gall.bzh/post/go/integrating-logrus-with-cobra/
-var v string
+var verboseLevel string
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() *cobra.Command {
+func Execute() {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if err := setupLogs(os.Stdout, v); err != nil {
+		if err := setupLogs(os.Stdout, verboseLevel); err != nil {
 			return err
 		}
 		return nil
 	}
+
+	rootCmd.PersistentFlags().StringVarP(&verboseLevel, "verbosity", "v", logrus.WarnLevel.String(), "Log level (debug, info, warn, error, fatal, panic)")
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
-	rootCmd.PersistentFlags().StringVarP(&v, "verbosity", "v", logrus.WarnLevel.String(), "Log level (debug, info, warn, error, fatal, panic)")
-	return rootCmd
 }
 
 func setupLogs(out io.Writer, level string) error {
