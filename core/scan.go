@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"gochopchop/internal"
 	"path"
@@ -29,7 +30,7 @@ type IScanner interface {
 }
 
 type Scanner struct {
-	Signatures *Signatures
+	Signatures        *Signatures
 	Fetcher           IFetcher
 	NoRedirectFetcher IFetcher
 	safeData          *SafeData
@@ -38,14 +39,14 @@ type Scanner struct {
 func NewScanner(fetcher IFetcher, noRedirectFetcher IFetcher, signatures *Signatures) *Scanner {
 	safeData := new(SafeData)
 	return &Scanner{
-		Signatures: signatures,
+		Signatures:        signatures,
 		Fetcher:           fetcher,
 		NoRedirectFetcher: noRedirectFetcher,
 		safeData:          safeData,
 	}
 }
 
-func (s Scanner) Scan(urls []string) ([]Output, error) {
+func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 	wg := new(sync.WaitGroup)
 
 	for _, url := range urls {
@@ -58,7 +59,7 @@ func (s Scanner) Scan(urls []string) ([]Output, error) {
 			fullURL := path.Join(url, endpoint)
 
 			wg.Add(1)
-			go func() {
+			go func(ctx context.Context) {
 				defer wg.Done()
 				resp, err := s.scanURL(fullURL, plugin)
 				if err != nil {
@@ -67,7 +68,7 @@ func (s Scanner) Scan(urls []string) ([]Output, error) {
 				swg := new(sync.WaitGroup)
 				for _, check := range plugin.Checks {
 					swg.Add(1)
-					go func() {
+					go func(ctx context.Context) {
 						defer swg.Done()
 						if ResponseAnalysis(resp, check) {
 							o := Output{
@@ -79,10 +80,10 @@ func (s Scanner) Scan(urls []string) ([]Output, error) {
 							}
 							s.safeData.Add(o)
 						}
-					}()
+					}(ctx)
 				}
 				swg.Wait()
-			}()
+			}(ctx)
 		}
 	}
 	wg.Wait()

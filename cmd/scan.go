@@ -50,7 +50,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// core
 	scanner := core.NewScanner(fetcher, noRedirectFetcher, signatures)
 
-	result, err := scanner.Scan(config.Urls)
+	result, err := scanner.Scan(cmd.Context(), config.Urls)
 	if err != nil {
 		return err
 	}

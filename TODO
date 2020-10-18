@@ -1,21 +1,17 @@
-- Flag --format pour csv et JSON
+[ ] Flag --format pour csv et JSON
 
-- Rajoutez un logger (-v) et un flag global verbose (multi level ?)
-ou alors comme curl/wget de base etre verbeux et avoir un flag silence/quiet ?
-https://www.honeybadger.io/blog/golang-logging/
-
-- si control+c pour arreter l'outil, stopper les goroutines
+[~] si control+c pour arreter l'outil, stopper les goroutines
     - Context (voir gobuster)
 
-- mock and unit tests
+[ ] mock and unit tests
 
-- Refactor scan
+[ ] Refactor scan
 
-- Argument et truc a faire pour pour git flow 
+[ ] Argument et truc a faire pour pour git flow 
     Bloquer master
     Code review
 
-- Github CI
+[ ] Github CI
 
 
 brainstorm
@@ -29,3 +25,9 @@ pour chaque URL :
             analyser resultat
             stocker resultat
 
+
+DONE
+----
+
+[x] architecture hexagonale
+[x] logger
