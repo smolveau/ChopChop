@@ -26,10 +26,8 @@ func init() {
 	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                               // --insecure ou -n
 	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                   // --uri-file ou -f
 	scanCmd.Flags().StringP("max-severity", "b", "", "maxSeverity pipeline if severity is over or equal specified flag") // --max-severity ou -m
-	// ENHANCEMENT csv or Json as a format flag
-	scanCmd.Flags().BoolP("csv", "", false, "output as a csv file")                          //--csv
-	scanCmd.Flags().BoolP("json", "", false, "output as a json file")                        //--json
-	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)") // --timeout ou -ts
+	scanCmd.Flags().StringSliceP("format", "f", []string{}, "format of the output (csv and json)")                       //--format
+	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)")                             // --timeout ou -ts
 	rootCmd.AddCommand(scanCmd)
 }
 
@@ -60,10 +58,10 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if len(result) > 0 {
 
 		formatting.PrintTable(result)
-		if config.ExportJSON {
+		if contains(config.Format, "json") {
 			formatting.ExportJSON(result)
 		}
-		if config.ExportCSV {
+		if contains(config.Format, "csv") {
 			formatting.ExportCSV(result)
 		}
 
@@ -135,14 +133,17 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 		return nil, fmt.Errorf("invalid value for insecure: %v", err)
 	}
 
-	exportCSV, err := cmd.Flags().GetBool("csv")
+	format, err := cmd.Flags().GetStringSlice("format")
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for csv: %v", err)
+		return nil, fmt.Errorf("invalid value for format: %v", err)
 	}
 
-	exportJSON, err := cmd.Flags().GetBool("json")
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for json: %v", err)
+	if len(format) > 0 {
+		for _, f := range format {
+			if f != "csv" && f != "json" {
+				return nil, fmt.Errorf("invalid value for format: %v , expected csv or json", f)
+			}
+		}
 	}
 
 	maxSeverity, err := cmd.Flags().GetString("max-severity")
@@ -164,8 +165,7 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 	config := &core.Config{
 		Insecure:    insecure,
 		MaxSeverity: maxSeverity,
-		ExportCSV:   exportCSV,
-		ExportJSON:  exportJSON,
+		Format:      format,
 		Urls:        urls,
 		Timeout:     timeout,
 	}
@@ -176,4 +176,13 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 func isURL(str string) bool {
 	u, err := url.Parse(str)
 	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

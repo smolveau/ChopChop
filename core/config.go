@@ -5,8 +5,7 @@ type Config struct {
 	// TODO couper partie HTTP du reste ?
 	Insecure    bool
 	MaxSeverity string
-	ExportCSV   bool
-	ExportJSON  bool
+	Format      []string
 	Urls        []string
 	Timeout     int
 }
