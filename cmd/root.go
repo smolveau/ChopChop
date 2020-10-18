@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +12,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+
+}
+
+// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "chopchop",
 	Short: "tool for dynamic application security testing on web applications",
@@ -20,10 +26,9 @@ var rootCmd = &cobra.Command{
 /   \  ___ /  _ \   ______ /    \  \/|  |  \ /  _ \\____ \/    \  \/|  |  \ /  _ \\____ \  | |
 \    \_\  (  <_> ) /_____/ \     \___|   Y  (  <_> )  |_> >     \___|   Y  (  <_> )  |_> >  \|
  \______  /\____/           \______  /___|  /\____/|   __/ \______  /___|  /\____/|   __/   __
-		\/                         \/     \/       |__|           \/     \/       |__|      \/
+        \/                         \/     \/       |__|           \/     \/       |__|      \/
 Link: https://github.com/michelin/ChopChop`,
-	SilenceUsage:      true,
-	PersistentPreRunE: setupLogs,
+	SilenceUsage: true,
 }
 
 var v string
@@ -43,12 +48,10 @@ func Execute() {
 	ctx, cancel := context.WithCancel(context.Background())
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
 	defer func() {
 		signal.Stop(sigs)
 		cancel()
 	}()
-
 	go func() {
 		select {
 		case <-sigs:
@@ -57,25 +60,18 @@ func Execute() {
 		case <-ctx.Done():
 		}
 	}()
-
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-func setupLogs(cmd *cobra.Command, args []string) error {
-	logrus.SetOutput(os.Stdout)
-
-	verbosity, err := cmd.Flags().GetString("verbosity")
-	if err != nil {
-		return fmt.Errorf("invalid value for verbosity: %v", err)
-	}
-
-	verboseLevel, err := logrus.ParseLevel(verbosity)
+func setupLogs(out io.Writer, level string) error {
+	logrus.SetOutput(out)
+	lvl, err := logrus.ParseLevel(level)
 	if err != nil {
 		return err
 	}
-	logrus.SetLevel(verboseLevel)
+	logrus.SetLevel(lvl)
 	return nil
 }

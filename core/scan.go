@@ -59,31 +59,39 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 			fullURL := path.Join(url, endpoint)
 
 			wg.Add(1)
-			go func(ctx context.Context) {
+			go func() {
 				defer wg.Done()
-				resp, err := s.scanURL(fullURL, plugin)
-				if err != nil {
-					return
-				}
-				swg := new(sync.WaitGroup)
-				for _, check := range plugin.Checks {
-					swg.Add(1)
-					go func(ctx context.Context) {
-						defer swg.Done()
-						if ResponseAnalysis(resp, check) {
-							o := Output{
-								URL:         fullURL,
-								PluginName:  check.PluginName,
-								Endpoint:    endpoint,
-								Severity:    *check.Severity,
-								Remediation: *check.Remediation,
+				select {
+				case <-ctx.Done():
+				default:
+					resp, err := s.scanURL(fullURL, plugin)
+					if err != nil {
+						return
+					}
+					swg := new(sync.WaitGroup)
+					for _, check := range plugin.Checks {
+						swg.Add(1)
+						go func() {
+							defer swg.Done()
+							select {
+							case <-ctx.Done():
+							default:
+								if ResponseAnalysis(resp, check) {
+									o := Output{
+										URL:         fullURL,
+										PluginName:  check.PluginName,
+										Endpoint:    endpoint,
+										Severity:    *check.Severity,
+										Remediation: *check.Remediation,
+									}
+									s.safeData.Add(o)
+								}
 							}
-							s.safeData.Add(o)
-						}
-					}(ctx)
+						}()
+					}
+					swg.Wait()
 				}
-				swg.Wait()
-			}(ctx)
+			}()
 		}
 	}
 	wg.Wait()

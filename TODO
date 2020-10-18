@@ -1,11 +1,7 @@
 [ ] Flag --format pour csv et JSON
 
-[~] si control+c pour arreter l'outil, stopper les goroutines
-    - Context (voir gobuster)
-
 [ ] mock and unit tests
 
-[ ] Refactor scan
 
 [ ] Argument et truc a faire pour pour git flow 
     Bloquer master
@@ -31,3 +27,6 @@ DONE
 
 [x] architecture hexagonale
 [x] logger
+[x] si control+c pour arreter l'outil, stopper les goroutines
+    - Context (voir gobuster)
+[x] Refactor scan
