@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,11 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-
-}
-
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "chopchop",
 	Short: "tool for dynamic application security testing on web applications",
@@ -26,9 +20,10 @@ var rootCmd = &cobra.Command{
 /   \  ___ /  _ \   ______ /    \  \/|  |  \ /  _ \\____ \/    \  \/|  |  \ /  _ \\____ \  | |
 \    \_\  (  <_> ) /_____/ \     \___|   Y  (  <_> )  |_> >     \___|   Y  (  <_> )  |_> >  \|
  \______  /\____/           \______  /___|  /\____/|   __/ \______  /___|  /\____/|   __/   __
-        \/                         \/     \/       |__|           \/     \/       |__|      \/
+		\/                         \/     \/       |__|           \/     \/       |__|      \/
 Link: https://github.com/michelin/ChopChop`,
-	SilenceUsage: true,
+	SilenceUsage:      true,
+	PersistentPreRunE: setupLogs,
 }
 
 var v string
@@ -69,12 +64,18 @@ func Execute() {
 	}
 }
 
-func setupLogs(out io.Writer, level string) error {
-	logrus.SetOutput(out)
-	lvl, err := logrus.ParseLevel(level)
+func setupLogs(cmd *cobra.Command, args []string) error {
+	logrus.SetOutput(os.Stdout)
+
+	verbosity, err := cmd.Flags().GetString("verbosity")
+	if err != nil {
+		return fmt.Errorf("invalid value for verbosity: %v", err)
+	}
+
+	verboseLevel, err := logrus.ParseLevel(verbosity)
 	if err != nil {
 		return err
 	}
-	logrus.SetLevel(lvl)
+	logrus.SetLevel(verboseLevel)
 	return nil
 }

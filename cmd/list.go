@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type ListOptions struct {
+type listOptions struct {
 	Severity string
 }
 
@@ -51,8 +51,8 @@ func runList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func parseOptions(cmd *cobra.Command) (*ListOptions, error) {
-	options := new(ListOptions)
+func parseOptions(cmd *cobra.Command) (*listOptions, error) {
+	options := new(listOptions)
 	severity, err := cmd.Flags().GetString("severity")
 	if err != nil {
 		return nil, fmt.Errorf("invalid value for severity: %v", err)
@@ -61,6 +61,7 @@ func parseOptions(cmd *cobra.Command) (*ListOptions, error) {
 		if !core.ValidSeverity(severity) {
 			return nil, fmt.Errorf("Invalid severity level : %s. Please use : %s", severity, core.SeveritiesAsString())
 		}
+		options.Severity = severity
 	}
 	return options, nil
 }
