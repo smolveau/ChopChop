@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -55,13 +55,13 @@ func Execute() {
 	go func() {
 		select {
 		case <-sigs:
-			fmt.Println("\n[!] Keyboard interrupt detected, cleaning up before terminating.")
+			log.Warn("\n[!] Keyboard interrupt detected, cleaning up before terminating.")
 			cancel()
 		case <-ctx.Done():
 		}
 	}()
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		fmt.Println(err)
+		log.Warn(err)
 		os.Exit(1)
 	}
 }

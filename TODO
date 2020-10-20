@@ -1,8 +1,12 @@
-[ ] Flag --format pour csv et JSON
-
 [ ] mock and unit tests
 
 [ ] Github CI
+
+[ ] Changer nom ResponseAnalysis
+
+[ ] Ajouter explanation pourquoi on a 2 fetchers en commentaires
+
+
 
 
 brainstorm
@@ -25,3 +29,4 @@ DONE
 [x] si control+c pour arreter l'outil, stopper les goroutines
     - Context (voir gobuster)
 [x] Refactor scan
+[x] Flag --format pour csv et JSON

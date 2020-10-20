@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type SafeData struct {
@@ -50,7 +51,7 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 	wg := new(sync.WaitGroup)
 
 	for _, url := range urls {
-		fmt.Println("Testing url : ", url)
+		log.Info("Testing url : ", url)
 		for _, plugin := range s.Signatures.Plugins {
 			endpoint := plugin.URI
 			if plugin.QueryString != "" {
@@ -63,6 +64,7 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 				defer wg.Done()
 				select {
 				case <-ctx.Done():
+					return
 				default:
 					resp, err := s.scanURL(fullURL, plugin)
 					if err != nil {
@@ -75,6 +77,7 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 							defer swg.Done()
 							select {
 							case <-ctx.Done():
+								return
 							default:
 								if ResponseAnalysis(resp, check) {
 									o := Output{
