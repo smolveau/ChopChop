@@ -11,7 +11,7 @@ import (
 // ExportCSV is a simple wrapper for CSV formatting
 func ExportCSV(exportFilename string, out []core.Output) error {
 
-	exportFilename = fmt.Sprintf("./%s.csv", exportFilename)
+	exportFilename = fmt.Sprintf("%s.csv", exportFilename)
 
 	f, err := os.OpenFile(exportFilename, os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
@@ -19,12 +19,12 @@ func ExportCSV(exportFilename string, out []core.Output) error {
 	}
 	defer f.Close()
 
-	_, err = f.WriteString("url,endpoint,severity,pluginName,remediation\n")
+	_, err = f.WriteString("url,endpoint,severity,checkName,remediation\n")
 	if err != nil {
 		return err
 	}
 	for _, output := range out {
-		line := fmt.Sprintf("%s,%s,%s,%s,%s\n", output.URL, output.Endpoint, output.Severity, output.PluginName, output.Remediation)
+		line := fmt.Sprintf("%s,%s,%s,%s,%s\n", output.URL, output.Endpoint, output.Severity, output.Name, output.Remediation)
 		_, err = f.Write([]byte(line))
 		if err != nil {
 			return err

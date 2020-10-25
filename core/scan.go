@@ -32,6 +32,7 @@ type Scanner struct {
 	Signatures        *Signatures
 	Fetcher           IFetcher
 	NoRedirectFetcher IFetcher
+	// Two fetchers are needed because we can't use the same http client to follow redirects
 	safeData          *SafeData
 }
 
@@ -51,47 +52,51 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 	for _, url := range urls {
 		log.Info("Testing url : ", url)
 		for _, plugin := range s.Signatures.Plugins {
-			endpoint := plugin.URI
-			if plugin.QueryString != "" {
-				endpoint = fmt.Sprintf("%s?%s", endpoint, plugin.QueryString)
-			}
-			fullURL := fmt.Sprintf("%s%s", url, endpoint)
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					resp, err := s.scanURL(fullURL, plugin)
-					if err != nil {
-						return
-					}
-					swg := new(sync.WaitGroup)
-					for _, check := range plugin.Checks {
-						swg.Add(1)
-						go func() {
-							defer swg.Done()
-							select {
-							case <-ctx.Done():
-								return
-							default:
-								if ResponseAnalysis(resp, check) {
-									o := Output{
-										URL:         fullURL,
-										PluginName:  check.PluginName,
-										Endpoint:    endpoint,
-										Severity:    *check.Severity,
-										Remediation: *check.Remediation,
-									}
-									s.safeData.Add(o)
-								}
-							}
-						}()
-					}
-					swg.Wait()
+			for _, uri := range plugin.URIs {
+				endpoint := uri
+				if plugin.QueryString != "" {
+					endpoint = fmt.Sprintf("%s?%s", endpoint, plugin.QueryString)
 				}
-			}()
+				fullURL := fmt.Sprintf("%s%s", url, endpoint)
+
+				wg.Add(1)
+				go func(plugin *Plugin) {
+					defer wg.Done()
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						resp, err := s.fetch(fullURL, plugin.FollowRedirects)
+						if err != nil {
+							log.Error(err)
+							return
+						}
+						swg := new(sync.WaitGroup)
+						for _, check := range plugin.Checks {
+							swg.Add(1)
+							go func(check *Check) {
+								defer swg.Done()
+								select {
+								case <-ctx.Done():
+									return
+								default:
+									if check.Match(resp) {
+										o := Output{
+											URL:         url,
+											Name:        check.Name,
+											Endpoint:    endpoint,
+											Severity:    check.Severity,
+											Remediation: check.Remediation,
+										}
+										s.safeData.Add(o)
+									}
+								}
+							}(check)
+						}
+						swg.Wait()
+					}
+				}(plugin)
+			}
 		}
 	}
 	wg.Wait()
@@ -99,11 +104,11 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 	return s.safeData.out, nil
 }
 
-func (s Scanner) scanURL(url string, plugin Plugin) (*internal.HTTPResponse, error) {
+func (s Scanner) fetch(url string, followRedirects bool) (*internal.HTTPResponse, error) {
 	var httpResponse *internal.HTTPResponse
 	var err error
 
-	if plugin.FollowRedirects != nil && *plugin.FollowRedirects == false {
+	if !followRedirects {
 		httpResponse, err = s.NoRedirectFetcher.Fetch(url)
 	} else {
 		httpResponse, err = s.Fetcher.Fetch(url)

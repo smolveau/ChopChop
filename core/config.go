@@ -2,13 +2,16 @@ package core
 
 // Struct for config flags
 type Config struct {
-	// TODO couper partie HTTP du reste ?
-	Insecure       bool
+	HTTP           HTTPConfig
 	MaxSeverity    string
 	ExportFormats  []string
 	Urls           []string
-	Timeout        int
 	ExportFilename string
 	SeverityFilter string
-	PluginFilter   string
+	PluginFilter   []string
+}
+
+type HTTPConfig struct {
+	Insecure bool
+	Timeout  int
 }

@@ -9,10 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type result struct {
-	checks []core.Output `json:"checks"`
-}
-
 // ExportJSON will save the output to a JSON file
 func ExportJSON(exportFilename string, output []core.Output) error {
 

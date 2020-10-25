@@ -26,7 +26,7 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	signatures, err := parseSignatures(cmd, "", "")
+	signatures, err := parseSignatures(cmd)
 	if err != nil {
 		return err
 	}
@@ -40,8 +40,8 @@ func runList(cmd *cobra.Command, args []string) error {
 	t.AppendHeader(table.Row{"URL", "Plugin Name", "Severity", "Description"})
 	for _, plugin := range signatures.Plugins {
 		for _, check := range plugin.Checks {
-			if options.Severity == "" || options.Severity == string(*check.Severity) {
-				t.AppendRow([]interface{}{plugin.URI, check.PluginName, *check.Severity, *check.Description})
+			if options.Severity == "" || options.Severity == string(check.Severity) {
+				t.AppendRow([]interface{}{plugin.URI, check.Name, check.Severity, check.Description})
 				cpt++
 			}
 		}

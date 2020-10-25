@@ -33,7 +33,7 @@ func PrintTable(out []core.Output) {
 			output.URL,
 			output.Endpoint,
 			severity,
-			output.PluginName,
+			output.Name,
 			output.Remediation,
 		})
 	}

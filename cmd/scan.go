@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"gochopchop/core"
-	"gochopchop/serverside/httpget"
-	"gochopchop/userside/formatting"
+	"gochopchop/internal/formatting"
+	"gochopchop/internal/httpget"
 	"net/url"
 	"os"
 	"time"
@@ -22,15 +22,14 @@ func init() {
 	}
 	addSignaturesFlag(scanCmd)
 
-	scanCmd.Flags().StringP("url", "u", "", "url to scan")                                                                                      // --url OU -u
-	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                                                      // --insecure ou -n
-	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                                          // --uri-file ou -f
-	scanCmd.Flags().StringP("max-severity", "b", "", "block the CI pipeline if severity is over or equal specified flag")                       // --max-severity ou -m
-	scanCmd.Flags().StringSliceP("export-format", "e", []string{}, "export of the output (csv and json)")                                       //--export ou --e
-	scanCmd.Flags().StringP("export-filename", "", "", "filename for export files")                                                             // --export-filename
-	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)")                                                    // --timeout ou -ts
-	scanCmd.Flags().StringP("severity-filter", "", "", "Filter by severity (engine will check for same severity checks)")                       // --severity-filter
-	scanCmd.Flags().StringP("plugin-filter", "", "", "Filter by the name of the plugin (engine will only check for plugin with the same name)") // --plugin-filter
+	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                                                                    // --insecure ou -n
+	scanCmd.Flags().StringP("url-file", "u", "", "path to a specified file containing urls to test")                                                          // --uri-file ou -f
+	scanCmd.Flags().StringP("max-severity", "b", "", "block the CI pipeline if severity is over or equal specified flag")                                     // --max-severity ou -m
+	scanCmd.Flags().StringSliceP("export", "e", []string{}, "export of the output (csv and json)")                                                            //--export ou --e
+	scanCmd.Flags().StringP("export-filename", "", "", "filename for export files")                                                                           // --export-filename
+	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)")                                                                  // --timeout ou -ts
+	scanCmd.Flags().StringP("severity-filter", "", "", "Filter by severity (engine will check for same severity checks)")                                     // --severity-filter
+	scanCmd.Flags().StringSliceP("plugin-filters", "", []string{}, "Filter by the name of the plugin (engine will only check for plugin with the same name)") // --plugin-filter
 	rootCmd.AddCommand(scanCmd)
 }
 
@@ -40,15 +39,16 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	signatures, err := parseSignatures(cmd, config.SeverityFilter, config.PluginFilter)
+	signatures, err := parseSignatures(cmd)
 	if err != nil {
 		return err
 	}
+
 	begin := time.Now()
 
 	// serverside
-	fetcher := httpget.NewFetcher(config.Insecure, config.Timeout)
-	noRedirectFetcher := httpget.NewNoRedirectFetcher(config.Insecure, config.Timeout)
+	fetcher := httpget.NewFetcher(config.HTTP.Insecure, config.HTTP.Timeout)
+	noRedirectFetcher := httpget.NewNoRedirectFetcher(config.HTTP.Insecure, config.HTTP.Timeout)
 	// core
 	scanner := core.NewScanner(fetcher, noRedirectFetcher, signatures)
 
@@ -84,23 +84,23 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 
-	inputFile, err := cmd.Flags().GetString("input-file")
+	urlFile, err := cmd.Flags().GetString("url-file")
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for input-file: %v", err)
+		return nil, fmt.Errorf("invalid value for url-file: %v", err)
 	}
 
-	if inputFile != "" && len(args) >= 1 {
-		// both input-file and url are set, abort
+	if urlFile != "" && len(args) >= 1 {
+		// both urlFile and url are set, abort
 		return nil, fmt.Errorf("Can't specify url with url list flag")
 	}
-	if inputFile == "" && len(args) == 0 {
-		// no input-file and no argument, abort
+	if urlFile == "" && len(args) == 0 {
+		// no urlFile and no argument, abort
 		return nil, fmt.Errorf("No url provided, please set the input-file flag or provide an url as an argument")
 	}
 
 	var urls []string
-	if inputFile != "" {
-		content, err := os.Open(inputFile)
+	if urlFile != "" {
+		content, err := os.Open(urlFile)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +109,7 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 		for scanner.Scan() {
 			url := scanner.Text()
 			if !isURL(url) {
-				log.Warn("url: %s - is not valid - skipping scan \n", url)
+				log.Warn("url: ", url, " - is not valid - skipping scan")
 				continue
 			}
 			urls = append(urls, url)
@@ -141,17 +141,21 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid value for severity-filter: %v", err)
 	}
-
-	pluginFilter, err := cmd.Flags().GetString("plugin-filter")
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for plugin-filter: %v", err)
+	if severityFilter != "" {
+		if !core.ValidSeverity(severityFilter) {
+			return nil, fmt.Errorf("Invalid severity level : %s. Please use : %s", severityFilter, core.SeveritiesAsString())
+		}
 	}
 
-	exportFormats, err := cmd.Flags().GetStringSlice("export-format")
+	pluginFilters, err := cmd.Flags().GetStringSlice("plugin-filters")
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for export: %v", err)
+		return nil, fmt.Errorf("invalid value for plugin-filters: %v", err)
 	}
 
+	exportFormats, err := cmd.Flags().GetStringSlice("export")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for export formats: %v", err)
+	}
 	if len(exportFormats) > 0 {
 		for _, f := range exportFormats {
 			if f != "csv" && f != "json" {
@@ -162,7 +166,10 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 
 	maxSeverity, err := cmd.Flags().GetString("max-severity")
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for maxSeverity: %v", err)
+		return nil, fmt.Errorf("invalid value for max sevirity : %v", err)
+	}
+	if maxSeverity != "" && !core.ValidSeverity(maxSeverity) {
+		return nil, fmt.Errorf("Invalid max severity level : %s. Please use : %s", maxSeverity, core.SeveritiesAsString())
 	}
 
 	exportFilename, err := cmd.Flags().GetString("export-filename")
@@ -171,13 +178,7 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 	}
 	if exportFilename == "" {
 		now := time.Now().Format("2006-01-02_15-04-05")
-		exportFilename = fmt.Sprintf("./gochopchop_%s", now)
-	}
-
-	if maxSeverity != "" {
-		if core.ValidSeverity(maxSeverity) {
-			return nil, fmt.Errorf("Invalid severity level : %s. Please use : %s", maxSeverity, core.SeveritiesAsString())
-		}
+		exportFilename = fmt.Sprintf("gochopchop_%s", now)
 	}
 
 	timeout, err := cmd.Flags().GetInt("timeout")
@@ -186,14 +187,16 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 	}
 
 	config := &core.Config{
-		Insecure:       insecure,
+		HTTP: core.HTTPConfig{
+			Insecure: insecure,
+			Timeout:  timeout,
+		},
 		MaxSeverity:    maxSeverity,
 		ExportFormats:  exportFormats,
 		Urls:           urls,
-		Timeout:        timeout,
 		ExportFilename: exportFilename,
 		SeverityFilter: severityFilter,
-		PluginFilter:   pluginFilter,
+		PluginFilter:   pluginFilters,
 	}
 
 	return config, nil
