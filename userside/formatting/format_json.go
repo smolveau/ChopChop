@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"gochopchop/core"
 	"os"
-	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type result struct {
@@ -13,19 +14,16 @@ type result struct {
 }
 
 // ExportJSON will save the output to a JSON file
-func ExportJSON(out []core.Output) error {
-	result := result{
-		checks: out,
-	}
+func ExportJSON(exportFilename string, output []core.Output) error {
 
-	jsonstr, err := json.Marshal(result)
+	jsonstr, err := json.Marshal(output)
 	if err != nil {
 		return err
 	}
 
-	now := time.Now().Format("2006-01-02_15-04-05")
-	filename := fmt.Sprintf("./gochopchop_%s.json", now)
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	exportFilename = fmt.Sprintf("./%s.json", exportFilename)
+
+	f, err := os.OpenFile(exportFilename, os.O_CREATE|os.O_WRONLY, 0755)
 	defer f.Close()
 	if err != nil {
 		return err
@@ -36,7 +34,7 @@ func ExportJSON(out []core.Output) error {
 		return err
 	}
 
-	fmt.Printf("Output as json : %s", filename)
+	log.Info("Export as json: ", exportFilename)
 
 	return nil
 }

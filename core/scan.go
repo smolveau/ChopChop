@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"gochopchop/internal"
-	"path"
 	"sync"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -57,8 +55,7 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 			if plugin.QueryString != "" {
 				endpoint = fmt.Sprintf("%s?%s", endpoint, plugin.QueryString)
 			}
-			fullURL := path.Join(url, endpoint)
-
+			fullURL := fmt.Sprintf("%s%s", url, endpoint)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -111,9 +108,8 @@ func (s Scanner) scanURL(url string, plugin Plugin) (*internal.HTTPResponse, err
 	} else {
 		httpResponse, err = s.Fetcher.Fetch(url)
 	}
-
 	if err != nil {
-		return nil, errors.Wrap(err, "Timeout of HTTP Request")
+		return nil, err
 	}
 	// weird case when both the error and the response are nil, caused by the server refusing the connection
 	if httpResponse == nil {

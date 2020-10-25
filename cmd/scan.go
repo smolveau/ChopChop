@@ -26,8 +26,10 @@ func init() {
 	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                               // --insecure ou -n
 	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                   // --uri-file ou -f
 	scanCmd.Flags().StringP("max-severity", "b", "", "maxSeverity pipeline if severity is over or equal specified flag") // --max-severity ou -m
-	scanCmd.Flags().StringSliceP("format", "f", []string{}, "format of the output (csv and json)")                       //--format
+	scanCmd.Flags().StringSliceP("export-format", "e", []string{}, "export of the output (csv and json)")                //--export ou --e
+	scanCmd.Flags().StringP("export-filename", "", "", "filename for export files")                                      // --export-filename
 	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)")                             // --timeout ou -ts
+
 	rootCmd.AddCommand(scanCmd)
 }
 
@@ -53,16 +55,16 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	log.Info("Scan execution time: %s", time.Since(begin))
+	log.Info("Scan execution time:", time.Since(begin))
 
 	if len(result) > 0 {
 
 		formatting.PrintTable(result)
-		if contains(config.Format, "json") {
-			formatting.ExportJSON(result)
+		if contains(config.ExportFormats, "json") {
+			formatting.ExportJSON(config.ExportFilename, result)
 		}
-		if contains(config.Format, "csv") {
-			formatting.ExportCSV(result)
+		if contains(config.ExportFormats, "csv") {
+			formatting.ExportCSV(config.ExportFilename, result)
 		}
 
 		if config.MaxSeverity != "" {
@@ -133,15 +135,15 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 		return nil, fmt.Errorf("invalid value for insecure: %v", err)
 	}
 
-	format, err := cmd.Flags().GetStringSlice("format")
+	exportFormats, err := cmd.Flags().GetStringSlice("export-format")
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for format: %v", err)
+		return nil, fmt.Errorf("invalid value for export: %v", err)
 	}
 
-	if len(format) > 0 {
-		for _, f := range format {
+	if len(exportFormats) > 0 {
+		for _, f := range exportFormats {
 			if f != "csv" && f != "json" {
-				return nil, fmt.Errorf("invalid value for format: %v , expected csv or json", f)
+				return nil, fmt.Errorf("invalid value for export: %v , expected csv or json", f)
 			}
 		}
 	}
@@ -149,6 +151,15 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 	maxSeverity, err := cmd.Flags().GetString("max-severity")
 	if err != nil {
 		return nil, fmt.Errorf("invalid value for maxSeverity: %v", err)
+	}
+
+	exportFilename, err := cmd.Flags().GetString("export-filename")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for exportFilename: %v", err)
+	}
+	if exportFilename == "" {
+		now := time.Now().Format("2006-01-02_15-04-05")
+		exportFilename = fmt.Sprintf("./gochopchop_%s", now)
 	}
 
 	if maxSeverity != "" {
@@ -163,11 +174,12 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 	}
 
 	config := &core.Config{
-		Insecure:    insecure,
-		MaxSeverity: maxSeverity,
-		Format:      format,
-		Urls:        urls,
-		Timeout:     timeout,
+		Insecure:       insecure,
+		MaxSeverity:    maxSeverity,
+		ExportFormats:  exportFormats,
+		Urls:           urls,
+		Timeout:        timeout,
+		ExportFilename: exportFilename,
 	}
 
 	return config, nil

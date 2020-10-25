@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"gochopchop/core"
 	"os"
-	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // ExportCSV is a simple wrapper for CSV formatting
-func ExportCSV(out []core.Output) error {
-	now := time.Now().Format("2006-01-02_15-04-05")
-	filename := fmt.Sprintf("./gochopchop_%s.csv", now)
+func ExportCSV(exportFilename string, out []core.Output) error {
 
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	exportFilename = fmt.Sprintf("./%s.csv", exportFilename)
+
+	f, err := os.OpenFile(exportFilename, os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		return err
 	}
@@ -30,6 +31,6 @@ func ExportCSV(out []core.Output) error {
 		}
 	}
 
-	fmt.Printf("Output as csv : %s \n", filename)
+	log.Info("Export as csv: ", exportFilename)
 	return nil
 }

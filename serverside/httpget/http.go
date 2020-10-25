@@ -4,9 +4,10 @@ import (
 	"crypto/tls"
 	"gochopchop/internal"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type IHTTPClient interface {
@@ -51,11 +52,9 @@ func NewNoRedirectFetcher(insecure bool, timeout int) *Fetcher {
 	return &Fetcher{
 		Netclient: netClient,
 	}
-}
 
-// TODO Add follow redirects
 func (s Fetcher) Fetch(url string) (*internal.HTTPResponse, error) {
-	// implements the core/IFetcher interface
+
 	resp, err := s.Netclient.Get(url)
 	if err != nil {
 		return nil, err

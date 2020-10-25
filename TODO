@@ -29,3 +29,18 @@ DONE
     - Context (voir gobuster)
 [x] Refactor scan
 [x] Flag --format pour csv et JSON
+
+---
+TODO PAUL
+---------
+
+- [ ] Mise a jour de la doc (avec nos modifs)
+- [x] Flag export-filename
+- [ ] changement des signatures, liste d'uri
+- [ ] nouvelle classe de signatures : NoHeaders (https://github.com/michelin/ChopChop/commit/f80b38f4cc1c87a116d0a3ba0d4c96c2d8ba2763)
+- [ ] tri du tableau final (https://github.com/michelin/ChopChop/commit/257b28dc716400d934d3a927b5f000c94e92d724)
+- [ ] modif de la fonction respanalysis (https://github.com/michelin/ChopChop/commit/257b28dc716400d934d3a927b5f000c94e92d724)
+- [ ] ??? (https://github.com/michelin/ChopChop/commit/4254dfb4af768c29923e08fc68907916c4fedbdc)
+- [ ] ajout de couleur dans le tableau final (https://github.com/michelin/ChopChop/commit/d8ec32900073cec916d38118237bb71799494157)
+- [ ] choix des signatures par severite (https://github.com/michelin/ChopChop/commit/d8fe6e291ad958511deef59326d1f3a1789302d6)
+- [ ] filtre sur le nom des signatures à activer (https://github.com/michelin/ChopChop/commit/6f309b36971bcc9735a26a11ced8f454a9a18102)
