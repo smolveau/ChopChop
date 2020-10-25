@@ -22,14 +22,15 @@ func init() {
 	}
 	addSignaturesFlag(scanCmd)
 
-	scanCmd.Flags().StringP("url", "u", "", "url to scan")                                                               // --url OU -u
-	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                               // --insecure ou -n
-	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                   // --uri-file ou -f
-	scanCmd.Flags().StringP("max-severity", "b", "", "maxSeverity pipeline if severity is over or equal specified flag") // --max-severity ou -m
-	scanCmd.Flags().StringSliceP("export-format", "e", []string{}, "export of the output (csv and json)")                //--export ou --e
-	scanCmd.Flags().StringP("export-filename", "", "", "filename for export files")                                      // --export-filename
-	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)")                             // --timeout ou -ts
-
+	scanCmd.Flags().StringP("url", "u", "", "url to scan")                                                                                      // --url OU -u
+	scanCmd.Flags().BoolP("insecure", "k", false, "Check SSL certificate")                                                                      // --insecure ou -n
+	scanCmd.Flags().StringP("input-file", "i", "", "path to a specified file containing urls to test")                                          // --uri-file ou -f
+	scanCmd.Flags().StringP("max-severity", "b", "", "block the CI pipeline if severity is over or equal specified flag")                       // --max-severity ou -m
+	scanCmd.Flags().StringSliceP("export-format", "e", []string{}, "export of the output (csv and json)")                                       //--export ou --e
+	scanCmd.Flags().StringP("export-filename", "", "", "filename for export files")                                                             // --export-filename
+	scanCmd.Flags().IntP("timeout", "t", 10, "Timeout for the HTTP requests (default: 10s)")                                                    // --timeout ou -ts
+	scanCmd.Flags().StringP("severity-filter", "", "", "Filter by severity (engine will check for same severity checks)")                       // --severity-filter
+	scanCmd.Flags().StringP("plugin-filter", "", "", "Filter by the name of the plugin (engine will only check for plugin with the same name)") // --plugin-filter
 	rootCmd.AddCommand(scanCmd)
 }
 
@@ -38,7 +39,8 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	signatures, err := parseSignatures(cmd)
+
+	signatures, err := parseSignatures(cmd, config.SeverityFilter, config.PluginFilter)
 	if err != nil {
 		return err
 	}
@@ -135,6 +137,16 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 		return nil, fmt.Errorf("invalid value for insecure: %v", err)
 	}
 
+	severityFilter, err := cmd.Flags().GetString("severity-filter")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for severity-filter: %v", err)
+	}
+
+	pluginFilter, err := cmd.Flags().GetString("plugin-filter")
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for plugin-filter: %v", err)
+	}
+
 	exportFormats, err := cmd.Flags().GetStringSlice("export-format")
 	if err != nil {
 		return nil, fmt.Errorf("invalid value for export: %v", err)
@@ -180,6 +192,8 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 		Urls:           urls,
 		Timeout:        timeout,
 		ExportFilename: exportFilename,
+		SeverityFilter: severityFilter,
+		PluginFilter:   pluginFilter,
 	}
 
 	return config, nil

@@ -9,4 +9,6 @@ type Config struct {
 	Urls           []string
 	Timeout        int
 	ExportFilename string
+	SeverityFilter string
+	PluginFilter   string
 }

@@ -26,7 +26,7 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	signatures, err := parseSignatures(cmd)
+	signatures, err := parseSignatures(cmd, "", "")
 	if err != nil {
 		return err
 	}

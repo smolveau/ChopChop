@@ -5,6 +5,7 @@ import (
 	"gochopchop/core"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -19,7 +20,7 @@ func addSignaturesFlag(cmd *cobra.Command) error {
 	return nil
 }
 
-func parseSignatures(cmd *cobra.Command) (*core.Signatures, error) {
+func parseSignatures(cmd *cobra.Command, severityFilter string, nameFilter string) (*core.Signatures, error) {
 
 	signatureFile, err := cmd.Flags().GetString(signatureFlagName)
 	if err != nil {
@@ -47,6 +48,19 @@ func parseSignatures(cmd *cobra.Command) (*core.Signatures, error) {
 		return nil, err
 	}
 
+	// Return only concerned signatures by severity filter
+	if severityFilter != "" {
+		if !core.ValidSeverity(severityFilter) {
+			return nil, fmt.Errorf("Invalid severity : %s. Please use : %s", severityFilter, core.SeveritiesAsString())
+		}
+		signatures = FilterSignaturesBySeverity(signatures, severityFilter)
+	}
+
+	// Return only concerned by name filter
+	if nameFilter != "" {
+		signatures = FilterSignaturesByName(signatures, nameFilter)
+	}
+
 	for _, plugin := range signatures.Plugins {
 		for _, check := range plugin.Checks {
 			if check.Description == nil {
@@ -65,4 +79,56 @@ func parseSignatures(cmd *cobra.Command) (*core.Signatures, error) {
 	}
 
 	return signatures, nil
+}
+
+func FilterSignaturesBySeverity(signatures *core.Signatures, severityFilter string) *core.Signatures {
+	/*
+		pour chaque plugin
+			pour chaque check
+			si severite == filtre severite
+				si le plugin est deja gardé
+				sinon ajouter le plugin
+				ajouter le check
+			sinon
+				passer
+	*/
+	// TODO A changer - Voir si d'autres solutions
+	filteredSignatures := core.NewSignatures()
+	for _, plugin := range signatures.Plugins {
+		filteredPlugin := plugin
+		filteredChecks := []core.Check{}
+		for _, check := range plugin.Checks {
+			if *check.Severity == severityFilter {
+				filteredChecks = append(filteredChecks, check)
+			} else {
+				continue
+			}
+		}
+		if len(filteredChecks) > 0 {
+			filteredPlugin.Checks = filteredChecks
+			filteredSignatures.Plugins = append(filteredSignatures.Plugins, filteredPlugin)
+		}
+	}
+	return filteredSignatures
+}
+
+func FilterSignaturesByName(signatures *core.Signatures, name string) *core.Signatures {
+	// TODO A changer - Voir si d'autres solutions
+	filteredSignatures := core.NewSignatures()
+	for _, plugin := range signatures.Plugins {
+		filteredPlugin := plugin
+		filteredChecks := []core.Check{}
+		for _, check := range plugin.Checks {
+			if strings.Contains(check.PluginName, name) {
+				filteredChecks = append(filteredChecks, check)
+			} else {
+				continue
+			}
+		}
+		if len(filteredChecks) > 0 {
+			filteredPlugin.Checks = filteredChecks
+			filteredSignatures.Plugins = append(filteredSignatures.Plugins, filteredPlugin)
+		}
+	}
+	return filteredSignatures
 }

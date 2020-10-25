@@ -19,7 +19,7 @@ type Check struct {
 	StatusCode  *int32    `yaml:"status_code"`
 	PluginName  string    `yaml:"name"`
 	Remediation *string   `yaml:"remediation"`
-	Severity    *string `yaml:"severity"`
+	Severity    *string   `yaml:"severity"`
 	Description *string   `yaml:"description"`
 	NoMatch     []*string `yaml:"no_match"`
 	Headers     []*string `yaml:"headers"`
