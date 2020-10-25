@@ -82,17 +82,7 @@ func parseSignatures(cmd *cobra.Command, severityFilter string, nameFilter strin
 }
 
 func FilterSignaturesBySeverity(signatures *core.Signatures, severityFilter string) *core.Signatures {
-	/*
-		pour chaque plugin
-			pour chaque check
-			si severite == filtre severite
-				si le plugin est deja gardé
-				sinon ajouter le plugin
-				ajouter le check
-			sinon
-				passer
-	*/
-	// TODO A changer - Voir si d'autres solutions
+	// TODO refactor (passer via le pointeur et slice) - cf https://abhinavg.net/posts/zero-alloc-slice-filter/
 	filteredSignatures := core.NewSignatures()
 	for _, plugin := range signatures.Plugins {
 		filteredPlugin := plugin

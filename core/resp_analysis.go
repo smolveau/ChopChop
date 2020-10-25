@@ -62,5 +62,24 @@ func ResponseAnalysis(resp *internal.HTTPResponse, signature Check) bool {
 			}
 		}
 	}
+
+	if signature.NoHeaders != nil {
+		for _, header := range signature.NoHeaders {
+			// Parse NoHeaders
+			pNoHeaders := strings.Split(*header, ":")
+			if v, kFound := resp.Header[pNoHeaders[0]]; kFound {
+				return false
+			} else if kFound && len(pNoHeaders) == 1 { // if the header has not been specified.
+				return false
+			} else {
+				for _, n := range v {
+					if strings.Contains(n, pNoHeaders[1]) {
+						return false
+					}
+				}
+			}
+		}
+	}
+
 	return true
 }
