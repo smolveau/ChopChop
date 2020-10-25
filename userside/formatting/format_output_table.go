@@ -20,11 +20,11 @@ func PrintTable(out []core.Output) {
 	t.AppendHeader(table.Row{"URL", "Endpoint", "Severity", "Plugin", "Remediation"})
 	for _, output := range out {
 		severity := ""
-		if out[i].Severity == "High" {
+		if output.Severity == "High" {
 			severity = fmt.Sprint(string(colorRed), "High", string(colorReset))
-		} else if out[i].Severity == "Medium" {
+		} else if output.Severity == "Medium" {
 			severity = fmt.Sprint(string(colorYellow), "Medium", string(colorReset))
-		} else if out[i].Severity == "Low" {
+		} else if output.Severity == "Low" {
 			severity = fmt.Sprint(string(colorGreen), "Low", string(colorReset))
 		} else {
 			severity = fmt.Sprint(string(colorCyan), "Informational", string(colorReset))
