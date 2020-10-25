@@ -7,7 +7,7 @@ import (
 
 //ResponseAnalysis of HTTP Request with checks
 func ResponseAnalysis(resp *internal.HTTPResponse, signature Check) bool {
-	// TODO a refactor
+
 	if signature.StatusCode != nil {
 		if int32(resp.StatusCode) != *signature.StatusCode {
 			return false
@@ -50,7 +50,7 @@ func ResponseAnalysis(resp *internal.HTTPResponse, signature Check) bool {
 			if v, kFound := resp.Header[pHeaders[0]]; kFound {
 				vFound := false
 				for _, n := range v {
-					if pHeaders[1] == n {
+					if strings.Contains(n, pHeaders[1]) {
 						vFound = true
 					}
 				}

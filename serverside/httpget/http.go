@@ -52,6 +52,7 @@ func NewNoRedirectFetcher(insecure bool, timeout int) *Fetcher {
 	return &Fetcher{
 		Netclient: netClient,
 	}
+}
 
 func (s Fetcher) Fetch(url string) (*internal.HTTPResponse, error) {
 

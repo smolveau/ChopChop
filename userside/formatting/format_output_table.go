@@ -22,5 +22,8 @@ func PrintTable(out []core.Output) {
 			output.Remediation,
 		})
 	}
+	t.SortBy([]table.SortBy{
+		{Name: "Severity", Mode: table.Asc},
+	})
 	t.Render()
 }
