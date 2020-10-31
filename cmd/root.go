@@ -44,7 +44,7 @@ func Execute() {
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&v, "verbosity", "v", logrus.WarnLevel.String(), "Log level (debug, info, warn, error, fatal, panic)")
-
+	rootCmd.PersistentFlags().IntP("threads", "", 4, "Number of concurrent threads")
 	ctx, cancel := context.WithCancel(context.Background())
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

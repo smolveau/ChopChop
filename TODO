@@ -1,5 +1,11 @@
 [ ] mock and unit tests
 
+[ ] handle if the server is too slow for the http Get requests
+- Check if httpresponse has error and if its because server is slow
+- https://github.com/OJ/gobuster/blob/0c0932426c96d312d4d8aeca9e840bc4ccdd77a8/cli/cmd/root.go#L66
+- https://github.com/OJ/gobuster/blob/0c0932426c96d312d4d8aeca9e840bc4ccdd77a8/libgobuster/libgobuster.go#L151
+- Adding of threads flag to specify number of concurrent threads
+
 [ ] Github CI
 
 CHANGELOG
