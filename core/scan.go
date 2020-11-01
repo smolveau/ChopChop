@@ -48,8 +48,60 @@ func NewScanner(fetcher IFetcher, noRedirectFetcher IFetcher, signatures *Signat
 	}
 }
 
+type workerJob struct {
+	url      string
+	endpoint string
+	plugin   *Plugin
+}
+
 func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 	wg := new(sync.WaitGroup)
+	jobs := make(chan workerJob)
+
+	for i := 0; i < s.Threads; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case job, ok := <-jobs:
+					if !ok { // no more jobs
+						return
+					}
+					resp, err := s.fetch(job.url, job.plugin.FollowRedirects)
+					if err != nil {
+						log.Error(err)
+						return
+					}
+					swg := new(sync.WaitGroup)
+					for _, check := range job.plugin.Checks {
+						swg.Add(1)
+						go func(check *Check) {
+							defer swg.Done()
+							select {
+							case <-ctx.Done():
+								return
+							default:
+								if check.Match(resp) {
+									o := Output{
+										URL:         job.url,
+										Name:        check.Name,
+										Endpoint:    job.endpoint,
+										Severity:    check.Severity,
+										Remediation: check.Remediation,
+									}
+									s.safeData.Add(o)
+								}
+							}
+						}(check)
+					}
+					swg.Wait()
+				}
+			}
+		}(i)
+	}
 
 	for _, url := range urls {
 		log.Info("Testing url : ", url)
@@ -61,46 +113,14 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 				}
 				fullURL := fmt.Sprintf("%s%s", url, endpoint)
 
-				wg.Add(s.Threads)
-				go func(plugin *Plugin) {
-					defer wg.Done()
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						resp, err := s.fetch(fullURL, plugin.FollowRedirects)
-						if err != nil {
-							log.Error(err)
-							return
-						}
-						swg := new(sync.WaitGroup)
-						for _, check := range plugin.Checks {
-							swg.Add(s.Threads)
-							go func(check *Check) {
-								defer swg.Done()
-								select {
-								case <-ctx.Done():
-									return
-								default:
-									if check.Match(resp) {
-										o := Output{
-											URL:         url,
-											Name:        check.Name,
-											Endpoint:    endpoint,
-											Severity:    check.Severity,
-											Remediation: check.Remediation,
-										}
-										s.safeData.Add(o)
-									}
-								}
-							}(check)
-						}
-						swg.Wait()
-					}
-				}(plugin)
+				w := workerJob{url: fullURL, endpoint: endpoint, plugin: plugin}
+
+				jobs <- w
 			}
 		}
 	}
+
+	close(jobs)
 	wg.Wait()
 
 	return s.safeData.out, nil

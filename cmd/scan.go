@@ -192,7 +192,7 @@ func parseConfig(cmd *cobra.Command, args []string) (*core.Config, error) {
 	}
 
 	if threads <= 0 {
-		return nil, fmt.Errorf("threads must be bigger than 0")
+		return nil, fmt.Errorf("The number of threads must be positive")
 	}
 
 	config := &core.Config{
