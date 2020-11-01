@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gochopchop/internal"
 	"sync"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -61,7 +60,7 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 
 	for i := 0; i < s.Threads; i++ {
 		wg.Add(1)
-		go func(i int) {
+		go func() {
 			defer wg.Done()
 			for {
 				select {
@@ -71,7 +70,6 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 					if !ok { // no more jobs
 						return
 					}
-					time.Sleep(1 * time.Second)
 					resp, err := s.fetch(job.url, job.plugin.FollowRedirects)
 					if err != nil {
 						log.Error(err)
@@ -102,7 +100,7 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 					swg.Wait()
 				}
 			}
-		}(i)
+		}()
 	}
 
 	for _, url := range urls {
