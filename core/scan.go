@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gochopchop/internal"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -70,6 +71,7 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 					if !ok { // no more jobs
 						return
 					}
+					time.Sleep(1 * time.Second)
 					resp, err := s.fetch(job.url, job.plugin.FollowRedirects)
 					if err != nil {
 						log.Error(err)
@@ -114,8 +116,11 @@ func (s Scanner) Scan(ctx context.Context, urls []string) ([]Output, error) {
 				fullURL := fmt.Sprintf("%s%s", url, endpoint)
 
 				w := workerJob{url: fullURL, endpoint: endpoint, plugin: plugin}
-
-				jobs <- w
+				select {
+				case <-ctx.Done():
+					break
+				case jobs <- w:
+				}
 			}
 		}
 	}

@@ -55,8 +55,9 @@ func Execute() {
 	go func() {
 		select {
 		case <-sigs:
-			log.Warn("\n[!] Keyboard interrupt detected, cleaning up before terminating.")
+			log.Warn("\n[!] Keyboard interrupt detected.")
 			cancel()
+			os.Exit(1)
 		case <-ctx.Done():
 		}
 	}()
@@ -67,6 +68,7 @@ func Execute() {
 }
 
 func setupLogs(out io.Writer, level string) error {
+	log.SetFormatter(&log.JSONFormatter{})
 	logrus.SetOutput(out)
 	lvl, err := logrus.ParseLevel(level)
 	if err != nil {
