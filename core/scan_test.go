@@ -1,13 +1,14 @@
-package core_test
+package core
 
 import (
 	"context"
 	"fmt"
-	"gochopchop/core"
 	"gochopchop/internal"
 	"net/http"
 	"testing"
 )
+
+var FakeScanner = NewScanner(MyFakeFetcher, MyFakeFetcher, FakeSignatures, 1)
 
 type FakeFetcher map[string]*internal.HTTPResponse
 
@@ -38,19 +39,17 @@ var MyFakeFetcher = FakeFetcher{
 func TestScanURL(t *testing.T) {
 	var tests = map[string]struct {
 		urls   []string
-		output []core.Output
+		output []Output
 	}{
-		"noproblem": {urls: []string{"http://noproblem"}, output: []core.Output{}},
+		"noproblem": {urls: []string{"http://noproblem"}, output: []Output{}},
 		"problems":  {urls: []string{"http://problems"}, output: FakeOutput},
 	}
-
-	scanner := core.NewScanner(MyFakeFetcher, MyFakeFetcher, FakeSignatures, 1)
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 
 			ctx := context.Background()
-			output, _ := scanner.Scan(ctx, tc.urls)
+			output, _ := FakeScanner.Scan(ctx, tc.urls)
 
 			for _, haveOutput := range tc.output {
 				found := false
