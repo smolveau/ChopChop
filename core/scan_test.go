@@ -36,7 +36,6 @@ var MyFakeFetcher = FakeFetcher{
 			"NoHeader": []string{"ok"},
 		},
 	},
-	"http://nilhttpresp/": nil,
 	"http://noproblem/?query=test": &internal.HTTPResponse{
 		StatusCode: 500,
 	},
@@ -48,17 +47,16 @@ func TestScan(t *testing.T) {
 		urls   []string
 		output []Output
 	}{
-		"noproblem":        {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
-		"context problem":  {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
-		"fetcher problem":  {ctx: context.Background(), urls: []string{"http://unknown"}, output: []Output{}},
-		"nil resp problem": {ctx: context.Background(), urls: []string{"http://nilhttpresp"}, output: []Output{}},
-		"problems":         {ctx: context.Background(), urls: []string{"http://problems"}, output: FakeOutput},
+		"no vulnerabilities found":       {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
+		"multiple vulnerabilities found": {ctx: context.Background(), urls: []string{"http://problems"}, output: FakeOutput},
+		"context is done":                {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
+		"fetcher problem":                {ctx: context.Background(), urls: []string{"http://unknown"}, output: []Output{}},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 
-			if name == "context problem" {
+			if name == "context is done" {
 				ctx, cancel := context.WithDeadline(tc.ctx, time.Now().Add(-7*time.Hour))
 				tc.ctx = ctx
 				cancel()
