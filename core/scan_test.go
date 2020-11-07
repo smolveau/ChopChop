@@ -6,8 +6,10 @@ import (
 	"gochopchop/internal"
 	"net/http"
 	"testing"
+	"time"
 )
 
+// TODO pas passer les signatures au new
 var FakeScanner = NewScanner(MyFakeFetcher, MyFakeFetcher, FakeSignatures, 1)
 
 type FakeFetcher map[string]*internal.HTTPResponse
@@ -34,22 +36,35 @@ var MyFakeFetcher = FakeFetcher{
 			"NoHeader": []string{"ok"},
 		},
 	},
+	"http://nilhttpresp/": nil,
+	"http://noproblem/?query=test": &internal.HTTPResponse{
+		StatusCode: 500,
+	},
 }
 
-func TestScanURL(t *testing.T) {
+func TestScan(t *testing.T) {
 	var tests = map[string]struct {
+		ctx    context.Context
 		urls   []string
 		output []Output
 	}{
-		"noproblem": {urls: []string{"http://noproblem"}, output: []Output{}},
-		"problems":  {urls: []string{"http://problems"}, output: FakeOutput},
+		"noproblem":        {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
+		"context problem":  {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
+		"fetcher problem":  {ctx: context.Background(), urls: []string{"http://unknown"}, output: []Output{}},
+		"nil resp problem": {ctx: context.Background(), urls: []string{"http://nilhttpresp"}, output: []Output{}},
+		"problems":         {ctx: context.Background(), urls: []string{"http://problems"}, output: FakeOutput},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 
-			ctx := context.Background()
-			output, _ := FakeScanner.Scan(ctx, tc.urls)
+			if name == "context problem" {
+				ctx, cancel := context.WithDeadline(tc.ctx, time.Now().Add(-7*time.Hour))
+				tc.ctx = ctx
+				cancel()
+			}
+
+			output, _ := FakeScanner.Scan(tc.ctx, tc.urls)
 
 			for _, haveOutput := range tc.output {
 				found := false

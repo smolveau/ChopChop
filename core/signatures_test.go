@@ -16,6 +16,12 @@ var FakeCheckStatusCode = &Check{
 	Remediation: "uninstall",
 	StatusCode:  createInt32(200),
 }
+var FakeCheckStatusCode2 = &Check{
+	Name:        "StatusCode",
+	Severity:    "Medium",
+	Remediation: "uninstall",
+	StatusCode:  createInt32(200),
+}
 
 var FakeCheckNoHeaders = &Check{
 	Name:        "NoHeaders",
@@ -66,14 +72,31 @@ var FakePlugin = &Plugin{
 	},
 }
 
-// Signatures
-
-var FakeSignatures = &Signatures{
-	Plugins: []*Plugin{
-		FakePlugin,
+var FakeQueryPlugin = &Plugin{
+	Endpoint:    "/",
+	QueryString: "query=test",
+	Checks: []*Check{
+		FakeCheckStatusCode,
 	},
 }
 
+var FakeFollowRedirectPlugin = &Plugin{
+	Endpoint: "/",
+	Checks: []*Check{
+		FakeCheckStatusCode2,
+	},
+	FollowRedirects: true,
+}
+
+// Signatures
+//TODO FIXME signatures ne prends pas plus d'un seul plugin sinon plante
+var FakeSignatures = &Signatures{
+	Plugins: []*Plugin{
+		FakePlugin,
+		//FakeQueryPlugin,
+		FakeFollowRedirectPlugin,
+	},
+}
 
 func TestFilterBySeverity(t *testing.T) {
 	want := NewSignatures()
