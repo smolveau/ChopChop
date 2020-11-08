@@ -11,14 +11,14 @@ func createInt32(x int32) *int32 {
 // Checks
 
 var FakeCheckStatusCode200 = &Check{
-	Name:        "StatusCode",
+	Name:        "StatusCode200",
 	Severity:    "Medium",
 	Remediation: "uninstall",
 	StatusCode:  createInt32(200),
 }
 
 var FakeCheckStatusCode500 = &Check{
-	Name:        "StatusCode",
+	Name:        "StatusCode500",
 	Severity:    "High",
 	Remediation: "uninstall",
 	StatusCode:  createInt32(500),
@@ -106,31 +106,57 @@ var FakeSignatures = &Signatures{
 	},
 }
 
-func TestFilterBySeverityNotEquals(t *testing.T) {
-	want := NewSignatures()
-	have := FakeSignatures
-	have.FilterBySeverity("High")
-	if !want.Equals(have) {
-		t.Errorf("expected: %v, got: %v", want, have)
+func TestFilterBySeverity(t *testing.T) {
+	var tests = map[string]struct {
+		have            *Signatures
+		want            *Signatures
+		severityChecked string
+	}{
+		"Same Severity in checks": {
+			have: &Signatures{Plugins: []*Plugin{
+				FakePlugin,
+			}},
+			want: &Signatures{Plugins: []*Plugin{
+				FakePlugin,
+			}},
+			severityChecked: "Medium",
+		},
 	}
-}
 
-func TestFilterBySeverityEquals(t *testing.T) {
-	want := FakeSignatures
-	have := FakeSignatures
-	have.FilterBySeverity("Medium")
-	if !want.Equals(have) {
-		t.Errorf("expected: %v, got: %v", want, have)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tc.have.FilterBySeverity(tc.severityChecked)
+			if !tc.want.Equals(tc.have) {
+				t.Errorf("expected: %v, got: %v", tc.want, tc.have)
+			}
+		})
 	}
 }
 
 func TestFilterByNames(t *testing.T) {
-	// TODO faire et traiter tous les cas
-	want := NewSignatures()
-	have := FakeSignatures
-	have.FilterByNames([]string{"UnknownCheck"})
-	if !want.Equals(have) {
-		t.Errorf("expected: %v, got: %v", want, have)
+	var tests = map[string]struct {
+		have        *Signatures
+		want        *Signatures
+		nameChecked string
+	}{
+		"Same Names in checks": {
+			have: &Signatures{Plugins: []*Plugin{
+				FakeQueryPlugin,
+			}},
+			want: &Signatures{Plugins: []*Plugin{
+				FakeQueryPlugin,
+			}},
+			nameChecked: "StatusCode200",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tc.have.FilterBySeverity(tc.nameChecked)
+			if !tc.want.Equals(tc.have) {
+				t.Errorf("expected: %v, got: %v", tc.want, tc.have)
+			}
+		})
 	}
 }
 
@@ -237,9 +263,10 @@ func TestSignaturesEquals(t *testing.T) {
 				FakeQueryPlugin,
 				FakeFollowRedirectPlugin,
 			}},
-			signatures2: &Signatures{},
+			signatures2: NewSignatures(),
 			want:        false,
 		},
+
 		"Not the same plugin content": {
 			signatures1: &Signatures{Plugins: []*Plugin{
 				FakePlugin2,
