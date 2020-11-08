@@ -108,24 +108,20 @@ var FakeSignatures = &Signatures{
 
 func TestFilterBySeverity(t *testing.T) {
 	var tests = map[string]struct {
-		have            *Signatures
-		want            *Signatures
-		severityChecked string
+		have     *Signatures
+		want     *Signatures
+		severity string
 	}{
-		"Same Severity in checks": {
-			have: &Signatures{Plugins: []*Plugin{
-				FakePlugin,
-			}},
-			want: &Signatures{Plugins: []*Plugin{
-				FakePlugin,
-			}},
-			severityChecked: "Medium",
+		"Filter nothing": {
+			have:     &Signatures{Plugins: []*Plugin{FakePlugin}},
+			want:     &Signatures{Plugins: []*Plugin{FakePlugin}},
+			severity: "Medium",
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			tc.have.FilterBySeverity(tc.severityChecked)
+			tc.have.FilterBySeverity(tc.severity)
 			if !tc.want.Equals(tc.have) {
 				t.Errorf("expected: %v, got: %v", tc.want, tc.have)
 			}
@@ -135,25 +131,26 @@ func TestFilterBySeverity(t *testing.T) {
 
 func TestFilterByNames(t *testing.T) {
 	var tests = map[string]struct {
-		have        *Signatures
-		want        *Signatures
-		nameChecked string
+		have  *Signatures
+		want  *Signatures
+		names []string
 	}{
-		"Same Names in checks": {
-			have: &Signatures{Plugins: []*Plugin{
-				FakeQueryPlugin,
-			}},
-			want: &Signatures{Plugins: []*Plugin{
-				FakeQueryPlugin,
-			}},
-			nameChecked: "StatusCode200",
+		"Filter nothing": {
+			have:  &Signatures{Plugins: []*Plugin{FakeQueryPlugin}},
+			want:  &Signatures{Plugins: []*Plugin{FakeQueryPlugin}},
+			names: []string{FakeCheckStatusCode200.Name},
+		},
+		"Filter one element": {
+			have:  &Signatures{Plugins: []*Plugin{FakeQueryPlugin}},
+			want:  &Signatures{},
+			names: []string{"check's name that is not in the signatures"},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			tc.have.FilterBySeverity(tc.nameChecked)
-			if !tc.want.Equals(tc.have) {
+			tc.have.FilterByNames(tc.names)
+			if !tc.have.Equals(tc.want) {
 				t.Errorf("expected: %v, got: %v", tc.want, tc.have)
 			}
 		})

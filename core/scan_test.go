@@ -69,11 +69,9 @@ func TestScan(t *testing.T) {
 			for _, haveOutput := range tc.output {
 				found := false
 				for _, wantOutput := range output {
-					if found {
-						break
-					}
 					if wantOutput.Name == haveOutput.Name {
 						found = true
+						break
 					}
 				}
 				if !found {
