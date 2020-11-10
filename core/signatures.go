@@ -75,6 +75,7 @@ func (s *Signatures) FilterByNames(names []string) {
 }
 
 //Match analyses the HTTP Request
+// a match means that one of the criteria has been met
 func (check *Check) Match(resp *internal.HTTPResponse) bool {
 	// status code must match
 	if check.StatusCode != nil {
@@ -82,6 +83,7 @@ func (check *Check) Match(resp *internal.HTTPResponse) bool {
 			return false
 		}
 	}
+
 	// all element must be found
 	for _, match := range check.MustMatchAll {
 		if !strings.Contains(resp.Body, match) {
@@ -112,43 +114,50 @@ func (check *Check) Match(resp *internal.HTTPResponse) bool {
 	}
 
 	// must contain all these headers
-	if len(check.Headers) > 0 {
-		for _, header := range check.Headers {
-			pHeaders := strings.Split(header, ":")
-			if v, kFound := resp.Header[pHeaders[0]]; kFound {
-				vFound := false
-				for _, n := range v {
-					if strings.Contains(n, pHeaders[1]) {
-						vFound = true
-					}
+	for _, header := range check.Headers {
+		pHeaders := strings.Split(header, ":")
+		pHeadersKey := pHeaders[0]
+		pHeadersValue := pHeaders[1]
+		if respHeaderValues, kFound := resp.Header[pHeadersKey]; kFound {
+			vFound := false
+			for _, respHeaderValue := range respHeaderValues {
+				if strings.Contains(respHeaderValue, pHeadersValue) {
+					vFound = true
+					break
 				}
-				if !vFound {
-					return false
-				}
-			} else {
+			}
+			if !vFound {
 				return false
 			}
+		} else {
+			return false
 		}
 	}
+	/*
+		headers : a, b
+		les 2 headers doivent etre trouvés avec des values correct
+	*/
 
 	// must not contain these headers
-	if len(check.NoHeaders) > 0 {
-		for _, header := range check.NoHeaders {
-			pNoHeaders := strings.Split(header, ":")
-			if v, kFound := resp.Header[pNoHeaders[0]]; kFound {
-				return false
-			} else if kFound && len(pNoHeaders) == 1 { // if the header has not been specified.
-				return false
-			} else {
-				for _, n := range v {
-					if strings.Contains(n, pNoHeaders[1]) {
-						return false
+	for _, header := range check.NoHeaders {
+		pNoHeaders := strings.Split(header, ":")
+		pNoHeadersKey := pNoHeaders[0]
+		if respHeaderValues, kFound := resp.Header[pNoHeadersKey]; kFound {
+			if len(pNoHeaders) > 1 {
+				pHeadersValue := pNoHeaders[1]
+				vFound := false
+				for _, respHeaderValue := range respHeaderValues {
+					if strings.Contains(respHeaderValue, pHeadersValue) {
+						vFound = true
+						break
 					}
+				}
+				if vFound {
+					return false
 				}
 			}
 		}
 	}
-
 	return true
 }
 

@@ -31,11 +31,24 @@ var FakeCheckNoHeaders = &Check{
 	NoHeaders:   []string{"NoHeader:ok"},
 }
 
+var FakeCheckNoHeadersKeyOnly = &Check{
+	Name:        "NoHeaders",
+	Severity:    "Medium",
+	Remediation: "uninstall",
+	NoHeaders:   []string{"NoHeader2"},
+}
+
 var FakeCheckHeaders = &Check{
 	Name:        "Headers",
 	Severity:    "Medium",
 	Remediation: "uninstall",
 	Headers:     []string{"Header:ok"},
+}
+var FakeCheckHeaders2 = &Check{
+	Name:        "Headers",
+	Severity:    "Medium",
+	Remediation: "uninstall",
+	Headers:     []string{"Header2:ok"},
 }
 
 var FakeCheckMatchOne = &Check{
@@ -66,7 +79,9 @@ var FakePlugin = &Plugin{
 	Checks: []*Check{
 		FakeCheckStatusCode200,
 		FakeCheckHeaders,
+		FakeCheckHeaders2,
 		FakeCheckNoHeaders,
+		FakeCheckNoHeadersKeyOnly,
 		FakeCheckMatchAll,
 		FakeCheckMatchOne,
 		FakeCheckNotMatch,
@@ -335,7 +350,7 @@ func TestCheckEquals(t *testing.T) {
 			check2: &Check{Headers: []string{"Header:notOK"}},
 			want:   false,
 		},
-		"noHeaders not Equals": {
+		"NoHeaders not Equals": {
 			check1: &Check{NoHeaders: []string{"NoHeader:OK"}},
 			check2: &Check{NoHeaders: []string{"NoHeader:notOK"}},
 			want:   false,

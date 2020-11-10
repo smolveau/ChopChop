@@ -26,14 +26,17 @@ var MyFakeFetcher = FakeFetcher{
 		StatusCode: 200,
 		Body:       "MATCHONE lorem ipsum MATCHTWO",
 		Header: http.Header{
-			"Header": []string{"ok"},
+			"Header":  []string{"ok"},
+			"Header2": []string{"ok"},
 		},
 	},
 	"http://noproblem/": &internal.HTTPResponse{
 		StatusCode: 500,
 		Body:       "NOTMATCH",
 		Header: http.Header{
-			"NoHeader": []string{"ok"},
+			"Header":    []string{"pasdutout"},
+			"NoHeader":  []string{"ok"},
+			"NoHeader2": []string{"ok"},
 		},
 	},
 	"http://nohttpresponse/": nil,
@@ -48,11 +51,11 @@ func TestScan(t *testing.T) {
 		urls   []string
 		output []Output
 	}{
-		"no vulnerabilities found":       {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
-		"multiple vulnerabilities found": {ctx: context.Background(), urls: []string{"http://problems"}, output: FakeOutput},
-		"context is done":                {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
-		"fetcher problem":                {ctx: context.Background(), urls: []string{"http://unknown"}, output: []Output{}},
-		"no HTTP Response":               {ctx: context.Background(), urls: []string{"http://nohttpresponse/"}, output: []Output{}},
+		"no vulnerabilities found":  {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
+		"all vulnerabilities found": {ctx: context.Background(), urls: []string{"http://problems"}, output: FakeOutput},
+		"context is done":           {ctx: context.Background(), urls: []string{"http://noproblem"}, output: []Output{}},
+		"fetcher problem":           {ctx: context.Background(), urls: []string{"http://unknown"}, output: []Output{}},
+		"no HTTP Response":          {ctx: context.Background(), urls: []string{"http://nohttpresponse"}, output: []Output{}},
 	}
 
 	for name, tc := range tests {
