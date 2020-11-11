@@ -133,10 +133,6 @@ func (check *Check) Match(resp *internal.HTTPResponse) bool {
 			return false
 		}
 	}
-	/*
-		headers : a, b
-		les 2 headers doivent etre trouvés avec des values correct
-	*/
 
 	// must not contain these headers
 	for _, header := range check.NoHeaders {
@@ -181,7 +177,7 @@ func (self *Signatures) Equals(signatures *Signatures) bool {
 }
 
 func (self *Plugin) Equals(plugin *Plugin) bool {
-	if !sliceStringEqual(self.Endpoints, plugin.Endpoints) {
+	if !SliceStringEqual(self.Endpoints, plugin.Endpoints) {
 		return false
 	}
 	if self.Endpoint != plugin.Endpoint {
@@ -209,13 +205,13 @@ func (self *Plugin) Equals(plugin *Plugin) bool {
 }
 
 func (self *Check) Equals(check *Check) bool {
-	if !sliceStringEqual(self.MustMatchOne, check.MustMatchOne) {
+	if !SliceStringEqual(self.MustMatchOne, check.MustMatchOne) {
 		return false
 	}
-	if !sliceStringEqual(self.MustMatchAll, check.MustMatchAll) {
+	if !SliceStringEqual(self.MustMatchAll, check.MustMatchAll) {
 		return false
 	}
-	if !sliceStringEqual(self.MustNotMatch, check.MustNotMatch) {
+	if !SliceStringEqual(self.MustNotMatch, check.MustNotMatch) {
 		return false
 	}
 	if self.StatusCode != nil && check.StatusCode != nil {
@@ -235,16 +231,16 @@ func (self *Check) Equals(check *Check) bool {
 	if self.Description != check.Description {
 		return false
 	}
-	if !sliceStringEqual(self.Headers, check.Headers) {
+	if !SliceStringEqual(self.Headers, check.Headers) {
 		return false
 	}
-	if !sliceStringEqual(self.NoHeaders, check.NoHeaders) {
+	if !SliceStringEqual(self.NoHeaders, check.NoHeaders) {
 		return false
 	}
 	return true
 }
 
-func sliceStringEqual(a, b []string) bool {
+func SliceStringEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}

@@ -3,34 +3,25 @@ package formatting
 import (
 	"fmt"
 	"gochopchop/core"
-	"os"
-
-	log "github.com/sirupsen/logrus"
 )
 
+type IFile interface {
+	WriteString(input string) (n int, err error)
+}
+
 // ExportCSV is a simple wrapper for CSV formatting
-func ExportCSV(exportFilename string, out []core.Output) error {
-
-	exportFilename = fmt.Sprintf("%s.csv", exportFilename)
-
-	f, err := os.OpenFile(exportFilename, os.O_CREATE|os.O_WRONLY, 0755)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.WriteString("url,endpoint,severity,checkName,remediation\n")
+func ExportCSV(file IFile, out []core.Output) error {
+	_, err := file.WriteString("url,endpoint,severity,checkName,remediation\n")
 	if err != nil {
 		return err
 	}
 	for _, output := range out {
 		line := fmt.Sprintf("%s,%s,%s,%s,%s\n", output.URL, output.Endpoint, output.Severity, output.Name, output.Remediation)
-		_, err = f.Write([]byte(line))
+		_, err := file.WriteString(line)
 		if err != nil {
 			return err
 		}
 	}
 
-	log.Info("Export as csv: ", exportFilename)
 	return nil
 }

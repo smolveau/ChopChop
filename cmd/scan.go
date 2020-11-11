@@ -60,12 +60,23 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	if len(result) > 0 {
 
-		formatting.PrintTable(result)
+		formatting.PrintTable(result, os.Stdout)
+
 		if contains(config.ExportFormats, "json") {
 			formatting.ExportJSON(config.ExportFilename, result)
 		}
 		if contains(config.ExportFormats, "csv") {
-			formatting.ExportCSV(config.ExportFilename, result)
+			exportFilename := fmt.Sprintf("%s.csv", config.ExportFilename)
+
+			f, err := os.OpenFile(exportFilename, os.O_CREATE|os.O_WRONLY, 0755)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			formatting.ExportCSV(f, result)
+
+			log.Info("Export as csv: ", exportFilename)
 		}
 
 		if config.MaxSeverity != "" {
