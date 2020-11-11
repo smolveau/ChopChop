@@ -59,3 +59,7 @@ var FakeOutput = []core.Output{
 	FakeOutputMatchOne,
 	FakeOutputNotMatch,
 }
+
+var FakeOutputFormatCSVString = "url,endpoint,severity,checkName,remediation\nhttp://problems,/,Medium,StatusCode200,uninstall\nhttp://problems,/,High,Headers,uninstall\nhttp://problems,/,Low,NoHeaders,uninstall\nhttp://problems,/,Informational,MustMatchAll,uninstall\nhttp://problems,/,Low,MustMatchOne,uninstall\nhttp://problems,/,High,MustNotMatch,uninstall\n"
+var FakeOutputFormatTableString = "+-----------------+----------+---------------+---------------+-------------+\n| URL             | ENDPOINT | SEVERITY      | PLUGIN        | REMEDIATION |\n+-----------------+----------+---------------+---------------+-------------+\n| http://problems | /        | \x1b[31mHigh\x1b[0m          | Headers       | uninstall   |\n| http://problems | /        | \x1b[31mHigh\x1b[0m          | MustNotMatch  | uninstall   |\n| http://problems | /        | \x1b[32mLow\x1b[0m           | NoHeaders     | uninstall   |\n| http://problems | /        | \x1b[32mLow\x1b[0m           | MustMatchOne  | uninstall   |\n| http://problems | /        | \x1b[33mMedium\x1b[0m        | StatusCode200 | uninstall   |\n| http://problems | /        | \x1b[36mInformational\x1b[0m | MustMatchAll  | uninstall   |\n+-----------------+----------+---------------+---------------+-------------+\n"
+var FakeOutputFormatJSONString = ""

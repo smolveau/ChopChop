@@ -6,28 +6,28 @@ import (
 	"gochopchop/internal/formatting"
 	"gochopchop/mock"
 	"testing"
+
+	"github.com/spf13/afero"
 )
 
 func TestFormatCSV(t *testing.T) {
 
-	file := mock.NewFakeFile()
-	_ = formatting.ExportCSV(file, mock.FakeOutput)
-	t.Log(file.Output())
-	return
+	appfs := afero.Afero{Fs: afero.NewMemMapFs()}
 
 	var tests = map[string]struct {
 		output []core.Output
-		file   mock.FakeFile
 		want   string
 	}{
-		"correct formatting": {output: mock.FakeOutput, file: mock.FakeFile{}, want: ""},
+		"correct formatting": {output: mock.FakeOutput, want: mock.FakeOutputFormatCSVString},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			_ = formatting.ExportCSV(tc.file, tc.output)
-			t.Log(tc.file.Output())
-			if tc.file.Output() != tc.want {
-				//t.Errorf("want : %q, got : %q", tc.want, tc.file.Output)
+			f, _ := appfs.Create("formatcsv")
+			_ = formatting.ExportCSV(f, tc.output)
+			contents, _ := appfs.ReadFile("formatcsv")
+			got := string(contents)
+			if got != tc.want {
+				t.Errorf("want : %q, got : %q", tc.want, got)
 			}
 		})
 	}
@@ -58,7 +58,7 @@ func TestFormatOutputTable(t *testing.T) {
 	output := mock.FakeOutput
 	formatting.PrintTable(output, mirror)
 	got := mirror.String()
-	want := "+-----------------+----------+---------------+---------------+-------------+\n| URL             | ENDPOINT | SEVERITY      | PLUGIN        | REMEDIATION |\n+-----------------+----------+---------------+---------------+-------------+\n| http://problems | /        | \x1b[31mHigh\x1b[0m          | Headers       | uninstall   |\n| http://problems | /        | \x1b[31mHigh\x1b[0m          | MustNotMatch  | uninstall   |\n| http://problems | /        | \x1b[32mLow\x1b[0m           | NoHeaders     | uninstall   |\n| http://problems | /        | \x1b[32mLow\x1b[0m           | MustMatchOne  | uninstall   |\n| http://problems | /        | \x1b[33mMedium\x1b[0m        | StatusCode200 | uninstall   |\n| http://problems | /        | \x1b[36mInformational\x1b[0m | MustMatchAll  | uninstall   |\n+-----------------+----------+---------------+---------------+-------------+\n"
+	want := mock.FakeOutputFormatTableString
 	if got != want {
 		t.Errorf("want : %q, got : %q", want, got)
 	}
