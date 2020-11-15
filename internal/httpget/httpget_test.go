@@ -28,23 +28,3 @@ func TestFetch(t *testing.T) {
 		})
 	}
 }
-
-/*
-func TestNewFetcher(t *testing.T) {
-	var tests = map[string]struct {
-		insecure        bool
-		timeout         int
-		fetcherReturned &httpget.Fetcher
-	}{
-		"NewFetcherInsecure": {insecure: true, timeout: 10, &httpget.Fetcher{
-			Netclient: FakeNetClient{
-				Transport: &http.Transport{TLSClientConfig:}
-			},
-		}},
-		"NewFetcherSecure": {insecure: false, timeout: 10},
-	}
-}
-
-func TestNewNoRedirectFetcher(t *testing.T) {
-}
-*/

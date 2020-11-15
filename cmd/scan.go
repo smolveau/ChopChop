@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"gochopchop/core"
+	"gochopchop/internal/export"
 	"gochopchop/internal/formatting"
 	"gochopchop/internal/httpget"
 	"net/url"
@@ -63,20 +64,10 @@ func runScan(cmd *cobra.Command, args []string) error {
 		formatting.PrintTable(result, os.Stdout)
 
 		if contains(config.ExportFormats, "json") {
-			formatting.ExportJSON(config.ExportFilename, result)
+			export.ExportJSON(config.ExportFilename, result)
 		}
 		if contains(config.ExportFormats, "csv") {
-			exportFilename := fmt.Sprintf("%s.csv", config.ExportFilename)
-
-			f, err := os.OpenFile(exportFilename, os.O_CREATE|os.O_WRONLY, 0755)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			formatting.ExportCSV(f, result)
-
-			log.Info("Export as csv: ", exportFilename)
+			export.ExportCSV(config.ExportFilename, result)
 		}
 
 		if config.MaxSeverity != "" {
