@@ -1,0 +1,13 @@
+---
+plugins:
+  - endpoint: "/"
+    checks:
+      - name: OSSIR Rocks
+        match:
+          - 'OSSIR ROCKS'
+        no_match:
+          - 'i will not be in the http response'
+        remediation: Wear a mask to enter SAFE mode :)
+        status_code: 200
+        description: Merry Christmas!
+        severity: "High"

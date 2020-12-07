@@ -175,15 +175,6 @@ plugins:
         description: Detects the presence of a default Apache page
         severity: "Informational"
         tested: true
-      - name: Drupal CMS
-        match:
-          - "drupal"
-          - '"sites/'
-          - '"core/'
-        remediation: Check that the version is the last one available on the vendor's website
-        description: Get the Drupal version of the site
-        severity: "Low"
-        tested: true
       - name: Status Code 500
         status_code: 500
         remediation: Check that the server has not completely fallen into error

@@ -90,6 +90,17 @@ And much more!
 
 ## Testing
 
+```
+1er test :
+
+py -m http.server
+go run main.go scan http://localhost:8000
+
+2e test:
+go run main.go .\tests\server.go
+go run main.go scan http://localhost:8000 -c .\ossir.yml
+```
+
 To quickly end-to-end test chopchop, we provided a web-server in `tests/server.go`.
 To try it, please run `go run tests/server.go` then run chopchop with the following command `./gochopchop scan http://localhost:8000 --verbosity Debug`.
 ChopChop should print "no vulnerabilities found".
